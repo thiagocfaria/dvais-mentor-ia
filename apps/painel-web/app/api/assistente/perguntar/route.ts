@@ -225,10 +225,15 @@ async function fetchWithRetry(
       if (!isRetryable || attempt === maxRetries) {
         throw err
       }
-      logOps({ topic: 'assistente', status: 'llm_retry', attempt, error: err.message, user: 'system' }).catch(() => {})
+      logOps({ topic: 'assistente', status: 'llm_retry', attempt, error: err.message, user: 'system' }).catch((logError) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[LogOps] Failed to log retry:', logError)
+        }
+      })
     }
   }
   
+  // Este código nunca será alcançado em condições normais, mas mantido para segurança do TypeScript
   throw lastError || new Error('Max retries exceeded')
 }
 
@@ -261,7 +266,11 @@ export async function POST(req: NextRequest) {
       status: 'memory_check',
       memoryUsed: Math.round(memory.heapUsed / 1024 / 1024),
       memoryTotal: Math.round(memory.heapTotal / 1024 / 1024)
-    }).catch(() => {})
+    }).catch((logError) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[LogOps] Failed to log memory check:', logError)
+      }
+    })
     
     if (memory.heapUsed > threshold) {
       // Limpar cache agressivamente
@@ -270,7 +279,11 @@ export async function POST(req: NextRequest) {
         topic: 'assistente',
         status: 'memory_high',
         memoryUsed: Math.round(memory.heapUsed / 1024 / 1024)
-      }).catch(() => {})
+      }).catch((logError) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[LogOps] Failed to log memory high:', logError)
+        }
+      })
     }
   }
   
@@ -285,7 +298,11 @@ export async function POST(req: NextRequest) {
     // Usar KV primeiro (compartilhado), fallback para memória se KV não disponível
     const rateLimitResult = await checkKVRateLimit(String(ip), IP_LIMIT, IP_WINDOW_MS / 1000)
     if (!rateLimitResult.allowed) {
-      logOps({ topic: 'assistente', status: 'ip_rate_limit', user: String(ip) }).catch(() => {})
+      logOps({ topic: 'assistente', status: 'ip_rate_limit', user: String(ip) }).catch((logError) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[LogOps] Failed to log rate limit:', logError)
+        }
+      })
       const retryAfter = rateLimitResult.retryAfter ? ` Aguarde ${rateLimitResult.retryAfter}s.` : ''
       return NextResponse.json(
         { error: `Muitas requisições.${retryAfter}` },
@@ -307,7 +324,11 @@ export async function POST(req: NextRequest) {
       status: 'circuit_block', 
       user,
       error: circuitResult.reason || `Circuito ${circuitResult.state}`,
-    }).catch(() => {})
+    }).catch((logError) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[LogOps] Failed to log circuit block:', logError)
+      }
+    })
     return NextResponse.json({ 
       error: circuitResult.reason || 'Modo econômico/seguro ativo. Tente mais tarde.', 
       mode: 'economico' 
@@ -319,7 +340,11 @@ export async function POST(req: NextRequest) {
   if (contentLength) {
     const size = parseInt(contentLength, 10)
     if (isNaN(size) || size > 10 * 1024) {
-      logOps({ topic: 'assistente', status: 'body_too_large', user }).catch(() => {})
+      logOps({ topic: 'assistente', status: 'body_too_large', user }).catch((logError) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[LogOps] Failed to log body too large:', logError)
+        }
+      })
       return NextResponse.json({ error: 'Payload muito grande.' }, { status: 413 })
     }
   }
@@ -329,7 +354,11 @@ export async function POST(req: NextRequest) {
   // Validar tamanho após parse também (para chunked encoding)
   const bodySize = JSON.stringify(body).length
   if (bodySize > 10 * 1024) {
-    logOps({ topic: 'assistente', status: 'body_too_large_parsed', user }).catch(() => {})
+    logOps({ topic: 'assistente', status: 'body_too_large_parsed', user }).catch((logError) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[LogOps] Failed to log body too large parsed:', logError)
+      }
+    })
     return NextResponse.json({ error: 'Payload muito grande.' }, { status: 413 })
   }
 
@@ -359,7 +388,11 @@ export async function POST(req: NextRequest) {
   if (cached && cached.expiresAt > Date.now()) {
     // Cache hit (KV ou memória) - atualizar lastAccessed já foi feito em getFromCache
     incrementCacheHit()
-    logOps({ topic: 'assistente', status: 'cache_hit', latencyMs: Math.round(performance.now() - started), user }).catch(() => {})
+    logOps({ topic: 'assistente', status: 'cache_hit', latencyMs: Math.round(performance.now() - started), user }).catch((logError) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[LogOps] Failed to log cache hit:', logError)
+      }
+    })
     return createOptimizedResponse(cached.response, true) // Cache hit
   }
   
@@ -390,7 +423,11 @@ export async function POST(req: NextRequest) {
 
     await registerSuccess(user) // Circuit breaker: registrar sucesso (KV + fallback memória)
     const latency = Math.round(performance.now() - started)
-    logOps({ topic: 'assistente', status: 'kb_hit', latencyMs: latency, mode: 'normal', user }).catch(() => {})
+    logOps({ topic: 'assistente', status: 'kb_hit', latencyMs: latency, mode: 'normal', user }).catch((logError) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[LogOps] Failed to log KB hit:', logError)
+      }
+    })
     return createOptimizedResponse(response, false) // KB hit (não é cache hit do endpoint)
   }
 
@@ -429,14 +466,22 @@ export async function POST(req: NextRequest) {
   const normalized = sanitized.toLowerCase()
   const inScope = hasClickContext || SCOPE_KEYWORDS.some((k) => normalized.includes(k))
   if (!inScope) {
-    logOps({ topic: 'assistente', status: 'out_of_scope', user }).catch(() => {})
+    logOps({ topic: 'assistente', status: 'out_of_scope', user }).catch((logError) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[LogOps] Failed to log out of scope:', logError)
+      }
+    })
     return NextResponse.json({ error: 'Fora de escopo. Pergunte sobre cadastro, análise, proteção, aprendizado ou resultados.' }, { status: 400 })
   }
 
   // Verificar budget antes de chamar LLM
   const ok = checkBudget(user, sessionId)
   if (!ok) {
-    logOps({ topic: 'assistente', status: 'budget_exceeded', user }).catch(() => {})
+    logOps({ topic: 'assistente', status: 'budget_exceeded', user }).catch((logError) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[LogOps] Failed to log budget exceeded:', logError)
+      }
+    })
     return NextResponse.json({ error: 'Limite atingido. Tente mais tarde.' }, { status: 429 })
   }
 
@@ -445,7 +490,11 @@ export async function POST(req: NextRequest) {
   const openRouterKey = process.env.OPENROUTER_API_KEY
   if (!groqKey && !openRouterKey) {
     await registerFailure(user) // Circuit breaker: registrar falha (KV + fallback memória)
-    logOps({ topic: 'assistente', status: 'no_api_key', user }).catch(() => {})
+    logOps({ topic: 'assistente', status: 'no_api_key', user }).catch((logError) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[LogOps] Failed to log no API key:', logError)
+      }
+    })
     return NextResponse.json({ error: 'Assistente temporariamente indisponível.' }, { status: 503 })
   }
 
@@ -462,15 +511,19 @@ export async function POST(req: NextRequest) {
   })
   
   // Log da intenção detectada (para debugging)
-  logOps({
-    topic: 'assistente',
-    status: 'intent_detected',
-    intent: detectedIntent.type,
-    confidence: detectedIntent.confidence,
-    keywords: detectedIntent.keywords.join(', '),
-    secondaryIntents: detectedIntent.secondaryIntents?.join(', ') || '',
-    user,
-  }).catch(() => {})
+    logOps({
+      topic: 'assistente',
+      status: 'intent_detected',
+      intent: detectedIntent.type,
+      confidence: detectedIntent.confidence,
+      keywords: detectedIntent.keywords.join(', '),
+      secondaryIntents: detectedIntent.secondaryIntents?.join(', ') || '',
+      user,
+    }).catch((logError) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[LogOps] Failed to log intent detected:', logError)
+      }
+    })
 
   const clickContextBlock = hasClickContext
     ? `\nCONTEXTO DO CLIQUE:\n- targetId: ${safeClickedTargetId || 'não mapeado'}\n- texto: ${clickedText || 'sem texto visível'}\n- elemento: ${clickedTag || 'desconhecido'}\n`
@@ -636,7 +689,11 @@ NUNCA retorne selector CSS direto, sempre use targetId.${clickContextBlock}`
       } catch (error: unknown) {
         await registerFailure(user) // Circuit breaker: registrar falha
         const message = error instanceof Error ? error.message : 'unknown'
-        logOps({ topic: 'assistente', status: 'stream_error', error: message, user }).catch(() => {})
+        logOps({ topic: 'assistente', status: 'stream_error', error: message, user }).catch((logError) => {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[LogOps] Failed to log stream error:', logError)
+          }
+        })
         return NextResponse.json({ error: 'Erro ao processar streaming.' }, { status: 500 })
       }
     }
@@ -657,7 +714,11 @@ NUNCA retorne selector CSS direto, sempre use targetId.${clickContextBlock}`
 
     if (!llmResp.ok) {
       await registerFailure(user) // Circuit breaker: registrar falha (KV + fallback memória)
-      logOps({ topic: 'assistente', status: 'llm_error', error: `LLM ${llmResp.status}`, user }).catch(() => {})
+      logOps({ topic: 'assistente', status: 'llm_error', error: `LLM ${llmResp.status}`, user }).catch((logError) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[LogOps] Failed to log LLM error:', logError)
+        }
+      })
       return NextResponse.json({ error: 'Erro ao processar pergunta.' }, { status: 500 })
     }
 
@@ -665,7 +726,11 @@ NUNCA retorne selector CSS direto, sempre use targetId.${clickContextBlock}`
     const content = llmData.choices?.[0]?.message?.content
     if (!content) {
       await registerFailure(user) // Circuit breaker: registrar falha (KV + fallback memória)
-      logOps({ topic: 'assistente', status: 'llm_no_content', user }).catch(() => {})
+      logOps({ topic: 'assistente', status: 'llm_no_content', user }).catch((logError) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[LogOps] Failed to log LLM no content:', logError)
+        }
+      })
       return NextResponse.json({ error: 'Resposta inválida do assistente.' }, { status: 500 })
     }
 
@@ -674,13 +739,21 @@ NUNCA retorne selector CSS direto, sempre use targetId.${clickContextBlock}`
       parsed = JSON.parse(content)
     } catch {
       await registerFailure(user) // Circuit breaker: registrar falha (KV + fallback memória)
-      logOps({ topic: 'assistente', status: 'llm_invalid_json', user }).catch(() => {})
+      logOps({ topic: 'assistente', status: 'llm_invalid_json', user }).catch((logError) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[LogOps] Failed to log LLM invalid JSON:', logError)
+        }
+      })
       return NextResponse.json({ error: 'Resposta inválida do assistente.' }, { status: 500 })
     }
 
     if (!parsed.spokenText || typeof parsed.spokenText !== 'string') {
       await registerFailure(user) // Circuit breaker: registrar falha (KV + fallback memória)
-      logOps({ topic: 'assistente', status: 'llm_invalid_schema', user }).catch(() => {})
+      logOps({ topic: 'assistente', status: 'llm_invalid_schema', user }).catch((logError) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[LogOps] Failed to log LLM invalid schema:', logError)
+        }
+      })
       return NextResponse.json({ error: 'Resposta inválida do assistente.' }, { status: 500 })
     }
 
@@ -711,12 +784,20 @@ NUNCA retorne selector CSS direto, sempre use targetId.${clickContextBlock}`
 
     await registerSuccess(user) // Circuit breaker: registrar sucesso (KV + fallback memória)
     const latency = Math.round(performance.now() - started)
-    logOps({ topic: 'assistente', status: 'ok', latencyMs: latency, tokens: llmData.usage?.total_tokens, mode: response.mode, user }).catch(() => {})
+    logOps({ topic: 'assistente', status: 'ok', latencyMs: latency, tokens: llmData.usage?.total_tokens, mode: response.mode, user }).catch((logError) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[LogOps] Failed to log OK:', logError)
+      }
+    })
     return createOptimizedResponse(response, false) // LLM response (não é cache hit)
   } catch (error: unknown) {
     await registerFailure(user) // Circuit breaker: registrar falha (KV + fallback memória)
     const message = error instanceof Error ? error.message : 'unknown'
-    logOps({ topic: 'assistente', status: 'llm_exception', error: message, user }).catch(() => {})
+    logOps({ topic: 'assistente', status: 'llm_exception', error: message, user }).catch((logError) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[LogOps] Failed to log LLM exception:', logError)
+      }
+    })
     return NextResponse.json({ error: 'Erro ao processar pergunta.' }, { status: 500 })
   }
 }

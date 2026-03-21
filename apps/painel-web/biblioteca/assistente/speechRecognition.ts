@@ -102,7 +102,7 @@ export async function startSpeechRecognition(
   recognition.interimResults = true
 
   let finalTranscript = ''
-  let silenceTimeoutId: number | null = null
+  let silenceTimeoutId: ReturnType<typeof setTimeout> | null = null
   // Timeout configurável: padrão 20s para modo Live (permite TTS + tempo de resposta do usuário)
   // Modo Manual pode usar valores menores (ex: 10s)
   const SILENCE_TIMEOUT_MS = options?.silenceTimeoutMs ?? 20000 // 20 segundos padrão (modo Live)
@@ -116,7 +116,7 @@ export async function startSpeechRecognition(
     silenceTimeoutId = setTimeout(() => {
       callbacks.onError?.(`Timeout: nenhum áudio detectado por ${timeoutSeconds} segundos.`)
       stopSpeechRecognition()
-    }, SILENCE_TIMEOUT_MS) as any
+    }, SILENCE_TIMEOUT_MS)
   }
 
   recognition.onstart = () => {

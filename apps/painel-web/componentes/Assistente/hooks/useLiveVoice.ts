@@ -37,8 +37,14 @@ export function useLiveVoice({
   const [isListening, setIsListening] = useState(false)
   const speechCleanupRef = useRef<(() => void) | null>(null)
   const startContinuousListeningRef = useRef<(() => void) | null>(null)
+  const onEndTimeoutRef = useRef<number | null>(null) // Para cleanup de timeout em onEnd
 
   const stopListening = useCallback(() => {
+    // Limpar timeout de onEnd se existir
+    if (onEndTimeoutRef.current !== null) {
+      clearTimeout(onEndTimeoutRef.current)
+      onEndTimeoutRef.current = null
+    }
     stopSpeechRecognition()
     speechCleanupRef.current?.()
     speechCleanupRef.current = null
@@ -108,7 +114,11 @@ export function useLiveVoice({
             speechCleanupRef.current = null
           },
           onEnd: () => {
-            setTimeout(() => {
+            // Limpar timeout anterior se existir
+            if (onEndTimeoutRef.current !== null) {
+              clearTimeout(onEndTimeoutRef.current)
+            }
+            onEndTimeoutRef.current = window.setTimeout(() => {
               if (
                 isActiveRef.current &&
                 continuousModeRef.current &&
@@ -120,6 +130,7 @@ export function useLiveVoice({
                 setIsListening(false)
                 speechCleanupRef.current = null
               }
+              onEndTimeoutRef.current = null
             }, 1000)
           },
         },

@@ -34,7 +34,7 @@ todos:
       - "4"
   - id: "7"
     content: "Validar métricas: cache hit rate, latência, fallback funcionando"
-    status: completed
+    status: in_progress
     dependencies:
       - "6"
   - id: "8"

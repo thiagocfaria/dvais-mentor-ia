@@ -13,9 +13,11 @@ import { useClickContext } from './hooks/useClickContext'
 import { useLiveVoice } from './hooks/useLiveVoice'
 
 type GuidedStep = { id: string; title: string; description: string; targetId: string }
+type TranscriptEntry = { question: string; answer: string; timestamp: number }
 const HIGHLIGHT_MS = 3500
 const MAX_SPOKEN_LEN = 260
 const CLICK_CONTEXT_TTL_MS = 2 * 60 * 1000
+const TRANSCRIPT_STORAGE_KEY = 'assistente_transcript'
 const hasSTT = () =>
   typeof window !== 'undefined' &&
   (!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition)
@@ -82,6 +84,35 @@ function waitForElement(selector: string, timeout: number = 10000): Promise<HTML
   })
 }
 
+function formatTranscript(
+  history: TranscriptEntry[],
+  sessionId: string | null,
+  currentPage: string
+): string {
+  const header = [
+    'Transcricao de testes - Assistente Davi',
+    `Sessao: ${sessionId ?? 'sem-id'}`,
+    `Pagina: ${currentPage || '-'}`,
+    `Gerado em: ${new Date().toISOString()}`,
+  ]
+
+  const entries = history
+    .filter(item => item.question || item.answer)
+    .map(item => {
+      const timestamp = new Date(item.timestamp).toLocaleString('pt-BR')
+      const lines: string[] = []
+      if (item.question) {
+        lines.push(`Usuario (${timestamp}): ${item.question}`)
+      }
+      if (item.answer) {
+        lines.push(`Davi (${timestamp}): ${item.answer}`)
+      }
+      return lines.join('\n')
+    })
+
+  return [...header, '', ...entries].join('\n\n').trim()
+}
+
 export default function Assistente() {
   const [isActive, setIsActive] = useState(false)
   const [showConsent, setShowConsent] = useState(false)
@@ -106,8 +137,13 @@ export default function Assistente() {
   const handleAskRef = useRef<
     ((speechAvailable: boolean, ttsAvailable: boolean) => Promise<void>) | null
   >(null)
+  const highlightTimeoutRef = useRef<number | null>(null) // Para cleanup de timeouts de highlight
+  const scrollTimeoutRef = useRef<number | null>(null) // Para cleanup de timeout de scroll pós-navegação
+  const actionTimeoutRef = useRef<number | null>(null) // Para cleanup de timeout de actions
+  const startLiveTimeoutRef = useRef<number | null>(null) // Para cleanup de timeout de startLive
 
   const showTextDebug = process.env.NEXT_PUBLIC_ASSISTENTE_TEXT_DEBUG === 'true'
+  const enableTranscriptDebug = process.env.NODE_ENV !== 'production' || showTextDebug
   const liveHintFallback =
     'Use clique único para abrir e duplo clique rápido para selecionar o assunto.'
 
@@ -136,6 +172,7 @@ export default function Assistente() {
   }, [isTTSSpeaking])
 
   const sessionIdRef = useAssistantSession()
+  const currentPage = typeof window !== 'undefined' ? window.location.pathname : ''
 
   const steps: GuidedStep[] = useMemo(
     () => [
@@ -185,6 +222,45 @@ export default function Assistente() {
     if (typeof window === 'undefined' || conversationHistory.length === 0) return
     sessionStorage.setItem('assistente_conversation', JSON.stringify(conversationHistory))
   }, [conversationHistory])
+
+  const buildTranscript = useCallback(() => {
+    return formatTranscript(conversationHistory, sessionIdRef.current, currentPage)
+  }, [conversationHistory, currentPage, sessionIdRef])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !enableTranscriptDebug) return
+    if (conversationHistory.length === 0) return
+    const transcript = buildTranscript()
+    if (!transcript) return
+    try {
+      localStorage.setItem(TRANSCRIPT_STORAGE_KEY, transcript)
+    } catch (error) {
+      // Ignorar falhas de storage no modo debug
+    }
+  }, [conversationHistory, buildTranscript, enableTranscriptDebug])
+
+  const handleExportTranscript = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const transcript = buildTranscript()
+    if (!transcript) return
+    const blob = new Blob([`${transcript}\n`], { type: 'text/plain;charset=utf-8' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    link.href = url
+    link.download = `davi-transcricao-${timestamp}.txt`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  }, [buildTranscript])
+
+  const handleClearTranscript = useCallback(() => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.removeItem(TRANSCRIPT_STORAGE_KEY)
+    } catch (error) {
+      // Ignorar falhas de storage no modo debug
+    }
+  }, [])
 
   // Scroll automático para última mensagem
   useEffect(() => {
@@ -306,6 +382,11 @@ export default function Assistente() {
   }, [isActive, showTextDebug])
 
   const highlight = useCallback((targetId: string) => {
+    // Limpar timeout anterior se existir
+    if (highlightTimeoutRef.current !== null) {
+      clearTimeout(highlightTimeoutRef.current)
+      highlightTimeoutRef.current = null
+    }
     cleanupRef.current && cleanupRef.current()
     const selector = getSelectorForTargetId(targetId) || `#${targetId}`
     const el = document.querySelector(selector) as HTMLElement
@@ -320,18 +401,29 @@ export default function Assistente() {
     cleanupRef.current = () => {
       el.style.boxShadow = prev
     }
-    window.setTimeout(() => cleanupRef.current && cleanupRef.current(), HIGHLIGHT_MS)
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      cleanupRef.current && cleanupRef.current()
+      highlightTimeoutRef.current = null
+    }, HIGHLIGHT_MS)
   }, [])
 
   const highlightElement = useCallback((element: HTMLElement | null) => {
     if (!element) return
+    // Limpar timeout anterior se existir
+    if (highlightTimeoutRef.current !== null) {
+      clearTimeout(highlightTimeoutRef.current)
+      highlightTimeoutRef.current = null
+    }
     cleanupRef.current && cleanupRef.current()
     const prev = element.style.boxShadow
     element.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.7)'
     cleanupRef.current = () => {
       element.style.boxShadow = prev
     }
-    window.setTimeout(() => cleanupRef.current && cleanupRef.current(), HIGHLIGHT_MS)
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      cleanupRef.current && cleanupRef.current()
+      highlightTimeoutRef.current = null
+    }, HIGHLIGHT_MS)
   }, [])
 
   const { clickedContext, setClickedContext, hintMessage, setHintMessage } = useClickContext({
@@ -379,6 +471,23 @@ export default function Assistente() {
 
   useEffect(() => {
     return () => {
+      // Limpar todos os timeouts
+      if (highlightTimeoutRef.current !== null) {
+        clearTimeout(highlightTimeoutRef.current)
+        highlightTimeoutRef.current = null
+      }
+      if (scrollTimeoutRef.current !== null) {
+        clearTimeout(scrollTimeoutRef.current)
+        scrollTimeoutRef.current = null
+      }
+      if (actionTimeoutRef.current !== null) {
+        clearTimeout(actionTimeoutRef.current)
+        actionTimeoutRef.current = null
+      }
+      if (startLiveTimeoutRef.current !== null) {
+        clearTimeout(startLiveTimeoutRef.current)
+        startLiveTimeoutRef.current = null
+      }
       cleanupRef.current && cleanupRef.current()
       abortControllerRef.current?.abort()
       cleanupVoice()
@@ -416,10 +525,15 @@ export default function Assistente() {
       )
 
       const startLive = () => {
-        setTimeout(() => {
+        // Limpar timeout anterior se existir
+        if (startLiveTimeoutRef.current !== null) {
+          clearTimeout(startLiveTimeoutRef.current)
+        }
+        startLiveTimeoutRef.current = window.setTimeout(() => {
           if (startContinuousListeningRef.current) {
             startContinuousListeningRef.current()
           }
+          startLiveTimeoutRef.current = null
         }, 500)
       }
 
@@ -443,6 +557,23 @@ export default function Assistente() {
   )
 
   const deactivate = useCallback(() => {
+    // Limpar todos os timeouts ao desativar
+    if (highlightTimeoutRef.current !== null) {
+      clearTimeout(highlightTimeoutRef.current)
+      highlightTimeoutRef.current = null
+    }
+    if (scrollTimeoutRef.current !== null) {
+      clearTimeout(scrollTimeoutRef.current)
+      scrollTimeoutRef.current = null
+    }
+    if (actionTimeoutRef.current !== null) {
+      clearTimeout(actionTimeoutRef.current)
+      actionTimeoutRef.current = null
+    }
+    if (startLiveTimeoutRef.current !== null) {
+      clearTimeout(startLiveTimeoutRef.current)
+      startLiveTimeoutRef.current = null
+    }
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
     stopListening()
@@ -474,8 +605,12 @@ export default function Assistente() {
   // Processar actions[] recebidas da API
   const processActions = useCallback(
     (actions: KBAction[] = []) => {
+      // Limpar timeout anterior se existir
+      if (actionTimeoutRef.current !== null) {
+        clearTimeout(actionTimeoutRef.current)
+      }
       // Executar actions com pequeno delay para garantir que UI atualizou
-      setTimeout(() => {
+      actionTimeoutRef.current = window.setTimeout(() => {
         for (const action of actions) {
           switch (action.type) {
             case 'scrollToSection':
@@ -499,6 +634,7 @@ export default function Assistente() {
               break
           }
         }
+        actionTimeoutRef.current = null
       }, 100) // Pequeno delay para garantir que resposta foi exibida
     },
     [highlight]
@@ -581,9 +717,15 @@ export default function Assistente() {
             // Highlight visual
             const prev = element.style.boxShadow
             element.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.7)'
-            setTimeout(() => {
+            // Armazenar timeout para cleanup
+            const highlightTimeoutId = window.setTimeout(() => {
               element.style.boxShadow = prev
             }, 3500)
+            // Armazenar em ref para cleanup se componente desmontar
+            if (highlightTimeoutRef.current !== null) {
+              clearTimeout(highlightTimeoutRef.current)
+            }
+            highlightTimeoutRef.current = highlightTimeoutId
 
             sessionStorage.removeItem('pendingNavigation')
 
@@ -607,8 +749,11 @@ export default function Assistente() {
         }
       }
 
-      // Executar após pequeno delay
-      setTimeout(() => scrollToTarget(), 300)
+      // Executar após pequeno delay - armazenar timeout para cleanup
+      scrollTimeoutRef.current = window.setTimeout(() => {
+        scrollToTarget()
+        scrollTimeoutRef.current = null
+      }, 300)
     } catch (e) {
       sessionStorage.removeItem('pendingNavigation')
     }
@@ -1207,6 +1352,25 @@ export default function Assistente() {
                 <div className="text-red-300">Assistente indisponível agora.</div>
               )}
             </div>
+
+            {enableTranscriptDebug && (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-gray-300">
+                <span className="text-gray-400">Transcricao (debug)</span>
+                <button
+                  className="rounded-md bg-gray-800 px-2 py-1 text-xs text-white hover:bg-gray-700 transition-colors"
+                  onClick={handleExportTranscript}
+                >
+                  Exportar .txt
+                </button>
+                <button
+                  className="rounded-md bg-gray-800 px-2 py-1 text-xs text-white hover:bg-gray-700 transition-colors"
+                  onClick={handleClearTranscript}
+                >
+                  Limpar log
+                </button>
+                <span className="text-gray-500">Salvo em localStorage.</span>
+              </div>
+            )}
           </div>
         </div>
       )}
