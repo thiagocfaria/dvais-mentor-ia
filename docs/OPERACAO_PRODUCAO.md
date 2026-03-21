@@ -10,7 +10,8 @@
 - Se algo critico falhar, retornar ao ultimo deploy com status OK.
 
 ## Monitoramento minimo
-- Verificar logs em `storage/logs/log_ops.jsonl`.
+- Em ambiente local/desenvolvimento, os logs operacionais podem ser inspecionados em `storage/logs/log_ops.jsonl`.
+- Em producao, prefira um coletor externo ou a observabilidade do provedor; o arquivo local nao deve ser tratado como fonte principal.
 - Acompanhar Web Vitals enviados para `/api/metrics`.
 - Monitorar taxa de erros 4xx/5xx no endpoint do assistente.
 

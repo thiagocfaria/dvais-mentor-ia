@@ -1,36 +1,33 @@
 # Dependências
-**/node_modules/
+node_modules/
 
 # Build outputs do Next.js
-**/.next/
-**/out/
+.next/
+out/
 
 # Deploy e cache
-**/.vercel/
-**/.cache/
+.vercel/
+.cache/
 
 # Logs
-**/*.log
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
 # TypeScript
-**/*.tsbuildinfo
+*.tsbuildinfo
+tsconfig.tsbuildinfo
 
 # Arquivos comprimidos
 *.pack.gz
 
-# Outputs específicos
-mnt/user-data/outputs/
-
-# Build específico do painel-web (redundante mas explícito)
-apps/painel-web/.next/
-apps/painel-web/node_modules/
+# Outputs específicos e montagens locais
+mnt/
 
 # Arquivos de ambiente local
-**/.env*.local
-**/.env.local
+.env*.local
+.env.local
 
 # Sistema operacional
 .DS_Store
@@ -48,8 +45,22 @@ Thumbs.db
 # Temporários
 *.tmp
 *.temp
-.cache/
 
 # Service Worker gerado pelo PWA (next-pwa)
-**/sw.js
-apps/painel-web/public/sw.js
+public/sw.js
+public/workbox-*.js
+
+# Cache e artefatos
+.pytest_cache/
+/.lighthouseci/
+/playwright-report/
+/test-results/
+/lhci/
+*.backup
+
+# Ferramentas de desenvolvimento
+.cursor/
+.claude/
+
+# Logs e snapshots locais
+storage/logs/

@@ -1,43 +1,98 @@
-# 🤖 DVAi$ - Mentor IA para Investimentos
+# DVAi$ - Mentor IA
 
-> Plataforma inteligente que guia você passo a passo nas principais corretoras de investimento, transformando complexidade em segurança.
+> Assistente contextual em Next.js e TypeScript, com navegação por voz/clique, validação de ações e uma camada técnica pensada para produto web corporativo.
 
-![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow)
-![Next.js](https://img.shields.io/badge/Next.js-14-black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
-![Vercel](https://img.shields.io/badge/deploy-Vercel-black)
+Este repositório é uma vitrine técnica honesta. Ele mostra um protótipo funcional de interface e arquitetura, mas não vende backend de autenticação real, IA local produtiva nem análise de mercado em tempo real comprovada.
 
-## 🌐 Demo ao Vivo
+## O que é
 
-**[👉 Acesse aqui: dvais-mentor-ia.vercel.app](https://dvais-mentor-ia.vercel.app)**
+O DVAi$ - Mentor IA é uma aplicação web construída para demonstrar um assistente contextual com foco em orientação guiada. O núcleo técnico combina base de conhecimento, validação de intenção/ações, fallback para LLM e proteções operacionais como cache, rate limit e circuit breaker.
 
----
+O repositório também inclui telas públicas de login e cadastro como demo de interface. Essas telas validam formulário no cliente, mas não se conectam a um backend de autenticação nesta versão.
 
-## ✨ Funcionalidades
+## Funcionalidades reais
 
-- 🎯 **Assistente de IA em tempo real** - Orientação personalizada para investimentos
-- 🗣️ **Avatar 3D interativo** - Interface humanizada e amigável  
-- 📊 **Análise de mercado** - Monitoramento contínuo e ajustes automáticos
-- 🔒 **Proteção inteligente** - Gestão de risco e transparência
-- 📱 **100% Responsivo** - Funciona em desktop e mobile
+- Assistente contextual com entrada por texto, clique e voz.
+- Fluxo `KB-first` com fallback para LLM quando necessário.
+- Validação e sanitização de ações antes de executar respostas.
+- Cache, rate limit e circuit breaker para proteger integrações instáveis.
+- Formulários com validação de dados no cliente, incluindo CPF e telefone internacional.
+- Métricas de `Web Vitals`, health check e endpoints de suporte operacional.
+- Interface responsiva e adaptada para desktop e mobile.
+- Configuração de `PWA` e deploy pensado para `Vercel`.
 
----
+## Stack
 
-## 🛠️ Tecnologias
+- `Next.js 14`
+- `TypeScript`
+- `React 18`
+- `Tailwind CSS`
+- `Zod`
+- `Vitest`
+- `Playwright`
+- `Vercel`
 
-| Frontend | Deploy | Extras |
-|----------|--------|--------|
-| Next.js 14 | Vercel | Avatar 3D |
-| TypeScript | - | IA Generativa |
-| Tailwind CSS | - | Real-time |
+## Arquitetura
 
----
+- `app/`: rotas, páginas públicas e endpoints.
+- `componentes/`: UI principal, incluindo hero, header, footer, assistente e formulários.
+- `biblioteca/`: módulos de domínio, validação, cache, rate limit, circuit breaker e logging.
+- `tests/`: testes unitários e E2E.
+- `public/`: assets estáticos, manifest e workers.
 
-## 👨‍💻 Desenvolvedor
+O fluxo principal do assistente usa base de conhecimento antes de consultar um modelo externo. Isso reduz ruído, melhora previsibilidade e deixa a integração mais resiliente.
 
-**Thiago Caetano Faria**  
-Estudante de Economia | Tecnologia em IA - SENAI Goiânia
+## Como rodar
 
----
+```bash
+npm install
+npm run dev
+```
 
-⭐ **Se gostou do projeto, deixe uma estrela!**
+Depois, abra `http://localhost:3000`.
+
+## Testes
+
+```bash
+npm run lint
+npm run test:unit
+npm run build
+npm run test:e2e
+```
+
+Verificações já previstas no projeto:
+
+- `lint`, `test:unit` e `build` são os sinais principais de saúde.
+- `test:e2e` cobre a navegação e a vitrine visual.
+- Há snapshot visual para home e login; ele é útil para checar regressões de layout, mas não representa uma garantia de produto pronto.
+
+## Limitações
+
+- Não existe backend real de autenticação nesta versão.
+- As telas de login/cadastro são demo de interface e validação local.
+- O projeto não prova IA local produtiva em produção.
+- O discurso de mercado em tempo real não deve ser interpretado como promessa operacional real.
+- Algumas páginas públicas são propositalmente demonstrativas e servem mais para portfólio do que para operação final.
+
+## Próximos passos
+
+- Separar melhor a camada do assistente em módulos menores.
+- Implementar autenticação real ou remover completamente a narrativa de login/cadastro.
+- Criar uma experiência mobile-first mais explícita para uso em campo.
+- Reduzir bundle inicial e melhorar o custo percebido da landing.
+- Substituir páginas demonstrativas por fluxos operacionais reais, se o projeto evoluir para produto.
+
+## Screenshots
+
+Capturas curadas do estado atual do projeto:
+
+![Captura da home](docs/screenshots/home-desktop.png)
+![Captura do login](docs/screenshots/login-desktop.png)
+
+## Descrição curta para GitHub
+
+Assistente contextual em Next.js/TypeScript com voz, clique e validação de ações, combinando base de conhecimento, fallback LLM, cache, rate limit, circuit breaker, testes automatizados e uma vitrine honesta para portfólio técnico.
+
+## Autor
+
+Thiago Caetano Faria

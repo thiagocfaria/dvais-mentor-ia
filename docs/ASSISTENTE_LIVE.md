@@ -1,7 +1,7 @@
 # Assistente Live (voz + selecao)
 
 ## Objetivo
-Apresentar a plataforma como um vendedor ao vivo: o usuario seleciona um item da pagina e faz perguntas por voz. O assistente responde de forma curta e profissional e guia o usuario com destaque visual.
+Apresentar o produto como um assistente contextual: o usuario seleciona um item da pagina e faz perguntas por voz. O assistente responde de forma curta, explica a interface e guia a navegacao com destaque visual.
 
 ## Como funciona
 1. **Ativacao**: usuario concede permissao de microfone.

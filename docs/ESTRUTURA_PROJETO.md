@@ -1,24 +1,22 @@
 # Estrutura do Projeto
 
 ```
-apps/
-  painel-web/
-    app/                # Rotas e paginas (Next.js App Router)
-    componentes/        # Componentes visuais e UI
-    biblioteca/         # Modulos core (assistente, cache, rate limit)
-    data/               # Mapeamento de elementos da pagina
-    public/             # Assets estaticos
-    tests/              # Testes E2E (Playwright)
+app/                    # Rotas e paginas (Next.js App Router)
+biblioteca/             # Modulos core (assistente, cache, rate limit)
+componentes/            # Componentes visuais e UI
+data/                   # Mapeamento de elementos da pagina
+public/                 # Assets estaticos e workers
+tests/                  # Testes E2E (Playwright)
+tipos/                  # Tipos TypeScript compartilhados
 
-packages/               # Pacotes compartilhados (se houver)
-services/               # Servicos auxiliares
-storage/                # Logs e dados locais
+docs/                   # Documentacao e screenshots da vitrine
 scripts/                # Scripts operacionais
-
-docs/ (este diretorio)
+storage/                # Logs e dados locais (nao expostos na vitrine)
 ```
 
 ## Pastas chave
-- `apps/painel-web/componentes/Assistente`: UI e hooks do assistente live.
-- `apps/painel-web/biblioteca/assistente`: KB, TTS/STT, intents, validadores.
-- `apps/painel-web/app/api/assistente`: endpoint principal do assistente.
+- `componentes/Assistente`: UI e hooks do assistente live.
+- `biblioteca/assistente`: KB, TTS/STT, intents, validadores e helpers.
+- `app/api/assistente`: endpoint principal do assistente.
+- `docs/screenshots`: imagens usadas no README e na vitrine do repositório.
+- `docs/assets`: imagens de apoio e demonstração.
