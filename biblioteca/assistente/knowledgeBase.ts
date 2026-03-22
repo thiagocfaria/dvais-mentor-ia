@@ -1,6 +1,6 @@
 import { isPracticalOpenQuestion } from '@/biblioteca/assistente/conversationSignals'
 
-export const KB_VERSION = 'kb_2025-01-27_v2'
+export const KB_VERSION = 'kb_2026-03-22_v3'
 
 export type KBAction =
   | { type: 'navigateRoute'; route: string; targetId?: string } // targetId opcional para scroll pós-navegação
@@ -227,9 +227,9 @@ export const ENTRIES: KBEntry[] = [
       { term: 'conta sobre', weight: 1 },
     ],
     responses: [
-      'O DVAi$ é um protótipo técnico com assistente contextual: ele explica a interface, guia a navegação e demonstra como combinar base de conhecimento, LLM e validação de ações.',
-      'O DVAi$ te guia do básico ao avançado dentro desta vitrine pública: explica o que você está vendo, organiza o conteúdo do produto e mostra uma abordagem mais responsável de UX assistida.',
-      'Aqui você aprende fazendo. O DVAi$ combina visão didática, navegação guiada e proteção de resposta para demonstrar um assistente mais previsível e seguro.',
+      'O DVAi$ é um mentor de investimentos com IA: te guia pela análise de mercado, ensina a interpretar indicadores e protege você de decisões impulsivas — tudo por voz ou clique, direto na interface.',
+      'DVAi$ te ajuda a investir com mais segurança. Ele explica o que você está vendo na tela, ensina conceitos na prática e te guia do iniciante ao analista — sem prometer lucro, sem pedir senha.',
+      'Pense no DVAi$ como um mentor que caminha com você: explica cada parte da análise, responde dúvidas por voz e texto, e te protege de armadilhas comuns no mercado.',
     ],
     actions: [
       { type: 'navigateRoute', route: '/' },
@@ -261,9 +261,9 @@ export const ENTRIES: KBEntry[] = [
       'vamos ver',
     ],
     responses: [
-      'Posso te guiar agora. Quer começar por: (1) análise guiada, (2) proteção inteligente, ou (3) aprendizado contínuo?',
-      'Bora fazer um tour rápido: eu te mostro as 3 partes principais do DVAi$ e explico cada termo do jeito mais simples possível. Por onde você quer começar?',
-      'Eu consigo navegar com você aqui no site e destacar cada parte. Quer ver primeiro análise guiada, segurança ou aprendizado?',
+      'Bora! Eu te mostro as 3 áreas principais: análise de mercado guiada, proteção inteligente e trilha de aprendizado. Por qual quer começar?',
+      'Posso te guiar agora: eu navego com você, destaco cada seção e explico o que cada parte faz. Quer começar pela análise, proteção ou aprendizado?',
+      'Tour rápido: eu te levo pelas 3 áreas do DVAi$ e explico tudo no caminho. Começo pela análise guiada?',
     ],
     actions: [{ type: 'navigateRoute', route: '/' }],
   },
@@ -295,9 +295,9 @@ export const ENTRIES: KBEntry[] = [
       'ver ordens',
     ],
     responses: [
-      'Nesta página demonstrativa eu explico sinais de interface, contexto de análise e como um assistente pode orientar leitura de dados sem prometer feed de mercado ao vivo.',
-      'Essa área mostra como transformar uma interface complexa em fluxo guiado: cards, indicadores e contexto visual que eu consigo explicar passo a passo.',
-      'Aqui você vê uma demonstração de leitura assistida de sinais e métricas de interface, com foco em clareza e redução de ambiguidade.',
+      'Na análise em tempo real, eu te mostro como ler candlesticks, volume, livro de ordens e indicadores técnicos — passo a passo, explicando o que cada sinal significa na prática.',
+      'Aqui você aprende a interpretar dados de mercado com a minha ajuda: eu destaco os pontos importantes, explico os indicadores e te ajudo a montar sua leitura antes de decidir.',
+      'A análise guiada funciona assim: você vê os dados, eu explico o contexto e os sinais relevantes. Sem achismo — tudo baseado em leitura técnica que você mesmo aprende a fazer.',
     ],
     actions: [{ type: 'navigateRoute', route: '/analise-tempo-real', targetId: 'analise-hero' }],
   },
@@ -330,9 +330,9 @@ export const ENTRIES: KBEntry[] = [
       'proteger meu dinheiro',
     ],
     responses: [
-      'Proteção inteligente é seu "cinto de segurança": foco em privacidade, controle e prevenção de decisões ruins. Você continua no comando da sua corretora — a plataforma não pede sua senha.',
-      'A segurança aqui é prioridade: nada de prometer lucro, nada de pedir credenciais. A ideia é te guiar com técnica, reduzir erro e manter sua experiência protegida.',
-      'A proposta é clara: proteger o usuário com processos, limites e orientação. Investimento tem risco — o que a gente faz é aumentar sua técnica e reduzir armadilhas.',
+      'Proteção inteligente é o meu papel principal: eu te aviso antes de decisões arriscadas, nunca peço sua senha e não prometo lucro. Você fica no comando — eu só garanto que você decide com informação.',
+      'Aqui a segurança funciona assim: rate limit contra abuso, circuit breaker contra falhas, validação de ações e, o mais importante, eu nunca guardo seus ativos nem peço credenciais.',
+      'Sua proteção tem várias camadas: orientação técnica contra decisões por impulso, alertas de risco, validação de cada ação e zero acesso às suas credenciais ou ativos.',
     ],
     actions: [{ type: 'navigateRoute', route: '/seguranca', targetId: 'seguranca-hero' }],
   },
@@ -367,9 +367,9 @@ export const ENTRIES: KBEntry[] = [
       'evoluir',
     ],
     responses: [
-      'Aprendizado contínuo significa evoluir por etapas: você aprende os conceitos, vê exemplos no mercado e vai ganhando repertório — do iniciante ao analista.',
-      'Aqui você aprende fazendo: em vez de teoria solta, você entende o que está vendo e por que isso importa para decidir melhor.',
-      'A plataforma estrutura sua evolução: linguagem simples para iniciantes e profundidade para quem quer analisar de verdade.',
+      'Você evolui no seu ritmo: começa como iniciante aprendendo o básico, avança para aventureiro praticando leitura de mercado, e chega a analista quando domina os sinais. Eu acompanho cada etapa.',
+      'O aprendizado aqui é prático: eu explico os conceitos enquanto você navega, mostro exemplos reais e aumento a profundidade conforme você evolui.',
+      'A trilha funciona assim: iniciante (conceitos básicos) → aventureiro (leitura de contexto) → analista (confluência de sinais e gestão de risco). Em qual etapa você está?',
     ],
     actions: [
       { type: 'navigateRoute', route: '/aprendizado-continuo', targetId: 'aprendizado-hero' },
@@ -538,10 +538,10 @@ export const ENTRIES: KBEntry[] = [
       { term: 'tranquilo', weight: 1 },
     ],
     responses: [
-      'Olá! Como posso ajudar você hoje?',
-      'Oi! Estou aqui para te ajudar com o DVAi$. O que você gostaria de saber?',
-      'Bom dia! Em que posso ajudar você sobre a plataforma DVAi$?',
-      'Oi! Posso te ajudar com análise guiada, proteção inteligente ou aprendizado contínuo. O que você quer saber?',
+      'Oi! Sou o Davi, seu mentor de investimentos. Posso te explicar a plataforma, tirar dúvidas sobre o mercado ou te guiar pela análise. O que prefere?',
+      'Olá! Tô aqui pra te ajudar. Quer entender como a plataforma funciona, aprender sobre investimentos ou fazer um tour rápido?',
+      'E aí! Posso te ajudar com análise de mercado, explicar conceitos ou te guiar pela plataforma. Por onde quer começar?',
+      'Oi! Sou o Davi. Me pergunta qualquer coisa sobre investimentos ou a plataforma — por texto ou por voz, como preferir.',
     ],
   },
   {
@@ -555,9 +555,9 @@ export const ENTRIES: KBEntry[] = [
       { term: 'o que não oferecem', weight: 4 },
     ],
     responses: [
-      'Não fazemos custódia de ativos, não pedimos senhas ou códigos de verificação, não prometemos lucro garantido e não somos uma corretora. Esta versão pública é uma demonstração técnica de UX e arquitetura.',
-      'Não guardamos seus ativos, não pedimos credenciais e não garantimos lucros. O foco aqui é demonstrar orientação guiada, validação e engenharia de interface.',
-      'Não somos corretora, não fazemos custódia e não pedimos senhas. Nosso papel nesta vitrine é mostrar como um assistente pode explicar um produto com mais clareza e segurança.',
+      'O DVAi$ não é corretora, não guarda seus ativos e nunca pede senha. O que fazemos é ensinar: análise técnica, leitura de mercado e decisões com método.',
+      'Não fazemos custódia, não pedimos credenciais e não prometemos lucro. Nosso papel é te dar conhecimento e ferramentas para você investir melhor por conta própria.',
+      'Somos um mentor, não uma corretora. Não guardamos dinheiro, não pedimos senhas e não prometemos retorno. Te ensinamos a analisar, decidir e se proteger.',
     ],
   },
   {
@@ -572,9 +572,9 @@ export const ENTRIES: KBEntry[] = [
       { term: 'você é bot', weight: 3 },
     ],
     responses: [
-      'Sou um assistente de IA do DVAi$ criado para te ajudar a entender a plataforma e investir com mais segurança. Posso responder perguntas sobre análise, proteção e aprendizado.',
-      'Sou uma inteligência artificial que faz parte do DVAi$. Estou aqui para te guiar e responder dúvidas sobre a plataforma.',
-      'Sou o assistente de IA do DVAi$. Meu papel é te ajudar a navegar pela plataforma e entender como investir com mais segurança e método.',
+      'Sou o Davi, o assistente de IA do DVAi$. Eu explico o que você vê na tela, ensino conceitos de investimento e te guio pela plataforma — por voz ou texto, como preferir.',
+      'Sou uma IA treinada para te ajudar a investir com mais método. Posso explicar indicadores, tirar dúvidas sobre o mercado e te guiar pela plataforma inteira.',
+      'Me chamo Davi e sou o mentor de IA do DVAi$. Meu trabalho é te ajudar a entender o mercado, usar a plataforma e tomar decisões mais informadas.',
     ],
   },
   {
@@ -596,14 +596,77 @@ export const ENTRIES: KBEntry[] = [
   },
   {
     id: 'resultados',
-    title: 'Resultados',
+    title: 'Resultados e métricas',
     keywords: ['resultados', 'métricas', 'estatísticas', 'números', 'desempenho', 'indicadores'],
     responses: [
-      'Veja os indicadores na seção de estatísticas. Eles mostram o desempenho e a confiança na plataforma, reforçando transparência e credibilidade.',
-      'Nossas métricas estão na seção de resultados. Elas demonstram o impacto positivo da plataforma e reforçam a confiança dos investidores.',
-      'Os resultados e estatísticas estão visíveis na página inicial. São números que comprovam a eficácia da orientação inteligente que oferecemos.',
+      'Na página inicial você vê as métricas da plataforma: número de análises guiadas, taxa de acerto das orientações e satisfação dos usuários. Quer que eu te leve até lá?',
+      'Os resultados ficam na seção de estatísticas da home. Lá você vê dados reais de uso: quantas análises foram feitas, quantos alertas dispararam e o nível de confiança dos usuários.',
+      'As estatísticas da plataforma mostram o uso real: análises realizadas, alertas de proteção ativados e evolução dos usuários. Posso te levar até essa seção.',
     ],
     actions: [{ type: 'scrollToSection', targetId: 'stats-section' }],
+  },
+  {
+    id: 'como_funciona_metodo',
+    title: 'Como funciona o método DVAi$',
+    keywords: [
+      { term: 'como funciona o método', weight: 6 },
+      { term: 'método dvais', weight: 6 },
+      { term: 'como invisto aqui', weight: 5 },
+      { term: 'como começo a investir', weight: 5 },
+      { term: 'por onde começar', weight: 4 },
+      { term: 'passo a passo investir', weight: 4 },
+      { term: 'como operar', weight: 3 },
+      { term: 'etapas', weight: 2 },
+    ],
+    responses: [
+      'O método é simples: primeiro você aprende os conceitos (eu explico tudo por voz ou texto), depois pratica a leitura de mercado com a minha orientação, e só age quando entende o que está fazendo. Nada de "achismo".',
+      'Funciona em 3 etapas: aprender (eu ensino os conceitos), analisar (eu te guio na leitura dos dados) e decidir (você age com método, não por impulso). Quer começar pelo básico?',
+      'Aqui o caminho é: entender → analisar → agir. Eu caminho com você em cada etapa — explico termos, mostro indicadores e te ajudo a montar uma leitura antes de qualquer decisão.',
+    ],
+    actions: [{ type: 'navigateRoute', route: '/aprendizado-continuo' }],
+    ctas: [
+      { label: 'Começar agora', route: '/cadastro' },
+    ],
+  },
+  {
+    id: 'o_que_posso_fazer',
+    title: 'O que posso fazer aqui',
+    keywords: [
+      { term: 'o que posso fazer aqui', weight: 6 },
+      { term: 'o que da pra fazer aqui', weight: 6 },
+      { term: 'o que tem aqui', weight: 4 },
+      { term: 'funcionalidades', weight: 4 },
+      { term: 'recursos da plataforma', weight: 4 },
+      { term: 'o que a plataforma oferece', weight: 5 },
+      { term: 'o que voces oferecem', weight: 4 },
+    ],
+    responses: [
+      'Aqui você pode: aprender a analisar o mercado com orientação por voz e texto, entender indicadores técnicos na prática, navegar por uma interface guiada e tirar dúvidas comigo a qualquer momento.',
+      'Você pode explorar análise de mercado guiada, aprender conceitos de investimento do iniciante ao avançado, usar proteção inteligente contra decisões ruins e conversar comigo por voz ou texto.',
+      'O DVAi$ te oferece: mentor por voz que explica a tela, trilha de aprendizado (iniciante → aventureiro → analista), análise guiada de indicadores e proteção contra armadilhas comuns.',
+    ],
+    actions: [{ type: 'navigateRoute', route: '/' }],
+  },
+  {
+    id: 'assistente_voz',
+    title: 'Como usar o assistente por voz',
+    keywords: [
+      { term: 'voz', weight: 5 },
+      { term: 'falar', weight: 4 },
+      { term: 'por voz', weight: 5 },
+      { term: 'microfone', weight: 4 },
+      { term: 'como falar com voce', weight: 5 },
+      { term: 'assistente de voz', weight: 5 },
+      { term: 'comando de voz', weight: 4 },
+      { term: 'reconhecimento de voz', weight: 3 },
+      { term: 'falar com davi', weight: 5 },
+      { term: 'usar a voz', weight: 4 },
+    ],
+    responses: [
+      'Para falar comigo por voz: clique em "Falar com Davi" e depois no botão do microfone. Fale sua pergunta e eu respondo por voz e texto. Simples assim.',
+      'O assistente de voz funciona em 2 toques: abra o chat e aperte o microfone. Você fala, eu ouço, processo e respondo — tudo dentro da interface.',
+      'Quer usar a voz? Abra o chat clicando em "Falar com Davi", depois toque no ícone do microfone. Eu escuto sua pergunta e respondo por voz automaticamente.',
+    ],
   },
 ]
 
