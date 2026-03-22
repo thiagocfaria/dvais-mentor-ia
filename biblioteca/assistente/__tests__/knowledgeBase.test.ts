@@ -131,3 +131,62 @@ describe('KB forbidden topics', () => {
     expect(result?.entryId).toBe('forbidden')
   })
 })
+
+describe('KB correções de matching (cenários que falhavam)', () => {
+  test('proteção inteligente NÃO retorna cadastro', () => {
+    const result = askFromKnowledgeBase('como funciona a proteção inteligente?')
+    expect(result?.entryId).toBe('protecao_inteligente')
+  })
+
+  test('alertas inteligentes NÃO retorna cadastro', () => {
+    const result = askFromKnowledgeBase('como funcionam os alertas inteligentes?')
+    expect(result?.entryId).toBe('alertas_inteligentes')
+  })
+
+  test('como usar a voz retorna assistente_voz', () => {
+    const result = askFromKnowledgeBase('como usar a voz?')
+    expect(result?.entryId).toBe('assistente_voz')
+  })
+
+  test('quanto custa retorna precos', () => {
+    const result = askFromKnowledgeBase('quanto custa?')
+    expect(result?.entryId).toBe('precos')
+  })
+
+  test('meus dados estão seguros retorna seguranca_dados', () => {
+    const result = askFromKnowledgeBase('meus dados estão seguros?')
+    expect(result?.entryId).toBe('seguranca_dados')
+  })
+
+  test('para quem serve retorna para_quem_serve', () => {
+    const result = askFromKnowledgeBase('para quem serve essa plataforma?')
+    expect(result?.entryId).toBe('para_quem_serve')
+  })
+
+  test('como funciona a plataforma retorna como_funciona_plataforma', () => {
+    const result = askFromKnowledgeBase('como funciona a plataforma?')
+    expect(result?.entryId).toBe('como_funciona_plataforma')
+  })
+
+  test('por que deveria me cadastrar retorna porque_cadastrar', () => {
+    const result = askFromKnowledgeBase('por que eu deveria me cadastrar?')
+    expect(result?.entryId).toBe('porque_cadastrar')
+  })
+
+  test('vou ganhar dinheiro retorna garantia_lucro', () => {
+    const result = askFromKnowledgeBase('vou ganhar dinheiro com isso?')
+    expect(result?.entryId).toBe('garantia_lucro')
+  })
+
+  test('guia financeiro retorna guia_financeiro', () => {
+    const result = askFromKnowledgeBase('quero saber sobre o guia financeiro')
+    expect(result?.entryId).toBe('guia_financeiro')
+  })
+
+  test('precos menciona gratuito', () => {
+    const result = askFromKnowledgeBase('quanto custa?')
+    expect(result?.entryId).toBe('precos')
+    const allResponses = result!.responses.join(' ')
+    expect(allResponses).toMatch(/gratuit/i)
+  })
+})

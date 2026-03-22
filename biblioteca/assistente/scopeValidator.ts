@@ -26,12 +26,35 @@ export const ALLOWED_IDS = [
 ] as const
 
 export const SCOPE_KEYWORDS = [
-  'cadastro', 'análise', 'analise', 'proteção', 'segurança', 'aprendizado', 'resultado', 'métrica', 'estatística',
-  'dvais', 'mentor', 'plataforma', 'como funciona', 'o que é', 'investimento', 'corretora', 'guia', 'funcionalidade',
-  'preço', 'valor', 'plano', 'assinatura', 'suporte', 'ajuda', 'tutorial', 'iniciante', 'aventureiro', 'analista',
+  // Áreas do produto
+  'cadastro', 'cadastrar', 'registrar', 'criar conta', 'login', 'logar', 'entrar',
+  'análise', 'analise', 'analisar', 'indicador', 'mercado', 'gráfico', 'candle',
+  'proteção', 'protecao', 'proteger', 'segurança', 'seguranca', 'seguro',
+  'aprendizado', 'aprender', 'trilha', 'educação', 'educacao',
+  'resultado', 'métrica', 'estatística', 'número',
+  // Identidade do produto
+  'dvais', 'davi', 'mentor', 'plataforma', 'produto', 'projeto', 'site', 'pagina', 'página',
+  // Perguntas comuns
+  'como funciona', 'o que é', 'o que faz', 'para que serve', 'pra que serve',
+  'investimento', 'investir', 'corretora', 'guia', 'funcionalidade',
+  // Preço e valor
+  'preço', 'preco', 'valor', 'plano', 'assinatura', 'custa', 'custo', 'grátis', 'gratuito', 'quanto',
+  // Suporte e ajuda
+  'suporte', 'ajuda', 'tutorial', 'contato', 'whatsapp',
+  // Perfis
+  'iniciante', 'aventureiro', 'analista',
+  // Assistente e voz
   'assistente', 'chat', 'voz', 'celular', 'mobile', 'microfone', 'áudio', 'audio', 'toque', 'clique',
+  // Financeiro e risco
+  'dinheiro', 'lucro', 'ganhar', 'perder', 'risco', 'capital', 'despesa', 'receita',
+  'alerta', 'alertas', 'disciplina', 'checklist',
+  // Confiança e regulação
+  'consultoria', 'regulado', 'confiável', 'confiar', 'dados', 'privacidade',
+  // Funcionalidades específicas
+  'guia financeiro', 'relatório', 'personalização', 'adapta',
+  // Técnico (manter para perguntas meta)
+  'oferece', 'oferecem', 'ia', 'kb', 'base de conhecimento', 'llm',
   'contexto', 'acao', 'ações', 'resposta', 'token', 'quota', 'cache', 'rate limit', 'circuit breaker',
-  'produto', 'projeto', 'site', 'pagina', 'página', 'oferece', 'oferecem', 'ia', 'kb', 'base de conhecimento', 'llm',
 ] as const
 
 // Saudações com word-boundary (evitar "oi" matchando dentro de "depois")
