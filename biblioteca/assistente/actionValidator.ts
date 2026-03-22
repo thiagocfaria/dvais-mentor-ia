@@ -53,7 +53,15 @@ export function validateActions(actions: Action[] | undefined, allowedIds: strin
   
   // Log em dev para identificar actions rejeitadas
   if (process.env.NODE_ENV === 'development') {
-    const rejected = actions.filter(a => !validated.includes(a))
+    const rejected = actions.filter(action => {
+      return !validated.some(validatedAction => {
+        return (
+          validatedAction.type === action.type &&
+          validatedAction.targetId === action.targetId &&
+          validatedAction.route === action.route
+        )
+      })
+    })
     if (rejected.length > 0) {
       console.warn('[ActionValidator] Rejected actions:', rejected)
     }

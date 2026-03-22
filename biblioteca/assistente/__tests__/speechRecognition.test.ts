@@ -1,5 +1,6 @@
 import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest'
 import {
+  resetSpeechPermissionCache,
   startSpeechRecognition,
   stopSpeechRecognition,
 } from '../speechRecognition'
@@ -41,6 +42,7 @@ describe('speechRecognition (mock)', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     stopSpeechRecognition()
+    resetSpeechPermissionCache()
   })
 
   test('retorna erro quando SpeechRecognition nao existe', async () => {

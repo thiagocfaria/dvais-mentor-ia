@@ -24,6 +24,12 @@ type LogPayload = {
   metricId?: string
   page?: string
   navigationType?: string
+  provider?: string
+  model?: string
+  errorType?: string
+  httpStatus?: number
+  kbConfidence?: number
+  kbReason?: string
 }
 
 const LOG_PATH = path.join(process.cwd(), 'storage', 'logs', 'log_ops.jsonl')

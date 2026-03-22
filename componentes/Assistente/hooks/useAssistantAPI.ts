@@ -11,9 +11,43 @@ import type { TranscriptEntry, AssistantMode } from '../types'
 import { CLICK_CONTEXT_TTL_MS, MAX_SPOKEN_LEN } from '../types'
 import { normalizeTtsText } from '../utils'
 
+export function buildConversationHistory(history: TranscriptEntry[]) {
+  return history
+    .flatMap(entry => {
+      const turns: Array<{ role: 'user' | 'assistant'; content: string }> = []
+      if (entry.question) turns.push({ role: 'user', content: entry.question })
+      if (entry.answer) turns.push({ role: 'assistant', content: entry.answer })
+      return turns
+    })
+    .slice(-12)
+    .map(entry => ({ ...entry, content: entry.content.slice(0, 240) }))
+}
+
+function mapAssistantError(data: Record<string, unknown>): string {
+  const errorType = typeof data.errorType === 'string' ? data.errorType : ''
+
+  if (errorType === 'quota_exceeded') {
+    return 'A IA ficou sem créditos ou quota disponível. O chat continua em texto quando houver resposta da KB.'
+  }
+  if (errorType === 'rate_limited') {
+    return 'O provider limitou temporariamente as requisições. Aguarde um pouco e tente de novo.'
+  }
+  if (errorType === 'unauthorized') {
+    return 'A configuração da chave da IA está inválida no servidor.'
+  }
+  if (errorType === 'timeout') {
+    return 'A IA demorou demais para responder. Tente uma pergunta mais curta.'
+  }
+  if (errorType === 'model_not_found') {
+    return 'O modelo configurado não está disponível neste provider.'
+  }
+
+  return ''
+}
+
 /**
  * Gerencia a lógica principal de perguntas/respostas do assistente:
- * validação, intent detection, chamada à API, TTS e atualização de histórico.
+ * validação, histórico, chamada à API, TTS e atualização de UI.
  */
 export function useAssistantAPI(args: {
   sessionIdRef: React.MutableRefObject<string | null>
@@ -51,10 +85,11 @@ export function useAssistantAPI(args: {
   } = args
 
   const [isThinking, setIsThinking] = useState(false)
-  const [isStreaming, setIsStreaming] = useState(false)
   const [mode, setMode] = useState<AssistantMode>('normal')
   const [qaAnswer, setQaAnswer] = useState('')
   const [isTTSSpeaking, setIsTTSSpeaking] = useState(false)
+  const [diagnosticMessage, setDiagnosticMessage] = useState('')
+  const [audioReplayText, setAudioReplayText] = useState('')
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const handleAskRef = useRef<
@@ -81,8 +116,23 @@ export function useAssistantAPI(args: {
     return next.length > MAX_SPOKEN_LEN ? trimmed : next
   }, [])
 
+  const replayAudio = useCallback(async () => {
+    if (!audioReplayText) return
+    setIsTTSSpeaking(true)
+    try {
+      const result = await speakText(normalizeTtsText(audioReplayText))
+      if (!result.ok) {
+        setDiagnosticMessage('O navegador bloqueou o áudio automático. A resposta continua disponível no chat.')
+      } else {
+        setDiagnosticMessage('')
+      }
+    } finally {
+      setIsTTSSpeaking(false)
+    }
+  }, [audioReplayText])
+
   const handleAsk = useCallback(
-    async (speechAvailable: boolean, ttsAvailable: boolean) => {
+    async (_speechAvailable: boolean, ttsAvailable: boolean) => {
       const q = question.trim()
       if (!q) return
       if (q.length > 300) {
@@ -92,11 +142,12 @@ export function useAssistantAPI(args: {
 
       if (clickedContext && shouldClearClickedContext(q)) {
         const clearMessage =
-          'Perfeito. Se quiser, posso explicar outra parte. Dê um duplo clique no item e pergunte.'
+          'Perfeito. Se quiser, posso explicar outra parte. Use "Selecionar item" para apontar um novo assunto.'
         setClickedContext(null)
         setHintMessage(clearMessage)
         setQaAnswer(clearMessage)
         setCaption(clearMessage)
+        setAudioReplayText(clearMessage)
         setConversationHistory(prev =>
           [...prev, { question: q, answer: clearMessage, timestamp: Date.now() }].slice(-10)
         )
@@ -128,7 +179,7 @@ export function useAssistantAPI(args: {
       ])
       setQuestion('')
       setIsThinking(true)
-      setIsStreaming(false)
+      setDiagnosticMessage('')
 
       const intent = detectIntent(q, {
         detectMultiple: true,
@@ -136,10 +187,7 @@ export function useAssistantAPI(args: {
         useFuzzy: true,
       })
 
-      const recentHistory = conversationHistory
-        .filter(h => h.question)
-        .slice(-5)
-        .map(h => ({ role: 'user' as const, content: h.question }))
+      const recentHistory = buildConversationHistory(conversationHistory)
 
       const now = Date.now()
       const activeClick =
@@ -175,29 +223,33 @@ export function useAssistantAPI(args: {
           }),
           signal: abortControllerRef.current.signal,
         })
-        const data = await resp.json()
+        const data = (await resp.json()) as Record<string, unknown>
         setIsThinking(false)
 
         if (!resp.ok) {
+          const errorMessage =
+            typeof data.error === 'string' ? data.error : 'Não consegui responder agora.'
           setMode(data?.mode === 'economico' ? 'economico' : 'erro')
-          setCaption(data?.error ?? 'Não consegui responder agora.')
-          setQaAnswer('')
+          setCaption(errorMessage)
+          setQaAnswer(errorMessage)
+          setAudioReplayText('')
+          setDiagnosticMessage(mapAssistantError(data))
           setConversationHistory(prev => {
             const updated = [...prev]
             if (updated.length > 0) {
               updated[updated.length - 1] = {
                 ...updated[updated.length - 1],
-                answer: data?.error ?? 'Erro ao processar.',
+                answer: errorMessage,
               }
             }
-            return updated
+            return updated.slice(-10)
           })
           return
         }
 
-        let spoken = data?.spokenText
-        if (!spoken && data?.entryId && data?.responses) {
-          spoken = pickVariant(data.responses, data.entryId)
+        let spoken = typeof data.spokenText === 'string' ? data.spokenText : ''
+        if (!spoken && typeof data.entryId === 'string' && Array.isArray(data.responses)) {
+          spoken = pickVariant(data.responses as string[], data.entryId)
         } else if (!spoken) {
           spoken = 'Posso ajudar nisso.'
         }
@@ -209,6 +261,7 @@ export function useAssistantAPI(args: {
         setMode(data?.mode === 'economico' ? 'economico' : 'normal')
         setQaAnswer(spoken)
         setCaption(spoken)
+        setAudioReplayText(spoken)
 
         if (useVoice && ttsAvailable) {
           if (continuousMode && isListeningRef.current) {
@@ -216,7 +269,12 @@ export function useAssistantAPI(args: {
           }
           setIsTTSSpeaking(true)
           try {
-            await speakText(normalizeTtsText(spoken))
+            const ttsResult = await speakText(normalizeTtsText(spoken))
+            if (!ttsResult.ok) {
+              setDiagnosticMessage(
+                'O navegador não liberou áudio automático. A resposta foi mantida no chat e você pode tocar em "Ouvir resposta".'
+              )
+            }
           } finally {
             setIsTTSSpeaking(false)
           }
@@ -235,13 +293,11 @@ export function useAssistantAPI(args: {
           return updated.slice(-10)
         })
 
-        const actions = Array.isArray(data?.actions) ? data.actions : []
+        const actions = Array.isArray(data.actions) ? data.actions : []
         processActions(actions as KBAction[])
 
         if (activeClick) {
-          setClickedContext(prev =>
-            prev ? { ...prev, timestamp: Date.now() } : prev
-          )
+          setClickedContext(prev => (prev ? { ...prev, timestamp: Date.now() } : prev))
         }
 
         if (continuousMode && useVoice) {
@@ -255,6 +311,8 @@ export function useAssistantAPI(args: {
         setMode('erro')
         setCaption('Falha ao consultar o assistente. Tente novamente.')
         setQaAnswer('')
+        setAudioReplayText('')
+        setDiagnosticMessage('A requisição falhou antes de concluir. Verifique a rede e tente novamente.')
         setConversationHistory(prev => {
           const updated = [...prev]
           if (updated.length > 0) {
@@ -263,7 +321,7 @@ export function useAssistantAPI(args: {
               answer: 'Erro ao processar. Tente novamente.',
             }
           }
-          return updated
+          return updated.slice(-10)
         })
       }
     },
@@ -284,7 +342,6 @@ export function useAssistantAPI(args: {
     handleAsk,
     handleAskRef,
     isThinking,
-    isStreaming,
     mode,
     qaAnswer,
     setQaAnswer,
@@ -292,7 +349,9 @@ export function useAssistantAPI(args: {
     setIsTTSSpeaking,
     setMode,
     setIsThinking,
-    setIsStreaming,
     abortControllerRef,
+    diagnosticMessage,
+    canReplayAudio: !!audioReplayText,
+    replayAudio,
   }
 }

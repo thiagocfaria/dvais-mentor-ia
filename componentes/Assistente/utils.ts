@@ -8,6 +8,14 @@ export const hasSTT = () =>
 export const hasTTS = () =>
   typeof window !== 'undefined' && typeof window.speechSynthesis !== 'undefined'
 
+export const isCoarsePointerDevice = () =>
+  typeof window !== 'undefined' &&
+  (
+    (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches) ||
+    (typeof navigator !== 'undefined' && typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 0) ||
+    window.innerWidth < 768
+  )
+
 export const normalizeTtsText = (text: string) =>
   text
     .replace(/DVAi\$/gi, 'Davi')

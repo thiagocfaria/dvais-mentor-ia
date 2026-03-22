@@ -34,6 +34,10 @@ export type KBReplyRaw = {
   responses: string[]
   actions?: KBAction[]
   ctas?: { label: string; route: string }[]
+  confidence?: number
+  score?: number
+  reason?: string
+  matchedTerms?: string[]
 } | null
 
 // Resposta final montada pelo client (com spokenText escolhido)
@@ -207,7 +211,6 @@ export const ENTRIES: KBEntry[] = [
       { term: 'mentor', weight: 4 },
       { term: 'o que é', weight: 3 },
       { term: 'plataforma', weight: 2 },
-      { term: 'como funciona', weight: 2 },
       // Keywords consolidadas da entrada 'funcionamento' (peso menor)
       { term: 'funcionamento', weight: 1 },
       { term: 'como usar', weight: 1 },
@@ -475,6 +478,7 @@ export const ENTRIES: KBEntry[] = [
     title: 'Cadastro',
     keywords: [
       { term: 'cadastro', weight: 6 },
+      { term: 'como funciona o cadastro', weight: 7 },
       { term: 'fazer cadastro', weight: 5 },
       { term: 'criar conta', weight: 4 },
       { term: 'registrar', weight: 4 },
@@ -907,9 +911,123 @@ function extractSearchTerms(normalized: string): string[] {
   return Array.from(terms)
 }
 
+type CandidateMeta = {
+  score: number
+  matchedTerms: Set<string>
+}
+
+const GENERIC_MATCH_TERMS = new Set([
+  'o que e',
+  'que e',
+  'como funciona',
+  'como usar',
+  'funcionamento',
+  'plataforma',
+  'isso',
+  'ajuda',
+  'mostrar',
+  'ver',
+  'guia',
+])
+
+const PRODUCT_IDENTITY_TERMS = new Set([
+  'dvais',
+  'mentor',
+  'davi',
+  'plataforma',
+])
+
+const KB_FORCE_LLM_RE =
+  /\b(base de conhecimento|kb|ia|llm|modelo|provider|roteamento|contexto|historico|como voces decidem|como decide|quando usar)\b/
+
+const OPEN_PRODUCT_GUIDE_RE =
+  /\b(produto|projeto|plataforma|site|pagina)\b/
+
+const OPEN_EXPLANATION_RE =
+  /\b(me explica|explica melhor|explica mais|me fale|conta mais)\b/
+
+const SPECIFIC_FLOW_TERMS = new Set([
+  'cadastro',
+  'login',
+  'seguranca',
+  'protecao',
+  'aprendizado',
+  'analise',
+  'preco',
+  'planos',
+  'resultado',
+  'resultados',
+])
+
+function registerCandidateMatch(
+  candidateMap: Map<string, CandidateMeta>,
+  entryId: string,
+  term: string,
+  score: number
+) {
+  const current = candidateMap.get(entryId) ?? { score: 0, matchedTerms: new Set<string>() }
+  current.score += score
+  if (term) {
+    current.matchedTerms.add(term)
+  }
+  candidateMap.set(entryId, current)
+}
+
+function clampConfidence(value: number): number {
+  return Math.max(0, Math.min(0.99, Number(value.toFixed(2))))
+}
+
+function computeKBConfidence(entryId: string, score: number, matchedTerms: string[], words: string[]): number {
+  let confidence = 0.2 + score / 16
+  const multiWordMatches = matchedTerms.filter(term => term.split(/\s+/).length >= 2)
+  const specificMatches = matchedTerms.filter(term => !GENERIC_MATCH_TERMS.has(term))
+  const hasIdentityMatch = matchedTerms.some(
+    term => PRODUCT_IDENTITY_TERMS.has(term) || /dvais|mentor|davi/.test(term)
+  )
+  const hasSpecificFlowTerm = words.some(word => SPECIFIC_FLOW_TERMS.has(word))
+
+  if (multiWordMatches.length > 0) confidence += 0.12
+  if (specificMatches.length > 0) confidence += 0.1
+  if (hasIdentityMatch) confidence += 0.08
+
+  if (entryId === 'elevator_pitch' && !hasIdentityMatch) {
+    confidence -= 0.28
+  }
+
+  if (entryId === 'elevator_pitch' && hasSpecificFlowTerm) {
+    confidence -= 0.18
+  }
+
+  if (matchedTerms.length > 0 && matchedTerms.every(term => GENERIC_MATCH_TERMS.has(term))) {
+    confidence -= 0.22
+  }
+
+  if (words.length >= 4 && specificMatches.length === 0) {
+    confidence -= 0.08
+  }
+
+  return clampConfidence(confidence)
+}
+
+function buildKBReason(entryId: string, confidence: number, matchedTerms: string[]): string {
+  if (matchedTerms.length === 0) {
+    return `entry=${entryId}; fallback_score_only`
+  }
+  const basis = matchedTerms.slice(0, 3).join(', ')
+  return `entry=${entryId}; confidence=${confidence}; matched=${basis}`
+}
+
 // Opção A: Retorna entryId e responses (client escolhe variação)
 export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBReplyRaw {
   const q = normalizeQuestion(questionRaw || '')
+
+  if (KB_FORCE_LLM_RE.test(q)) {
+    return null
+  }
+
+  if (OPEN_PRODUCT_GUIDE_RE.test(q) && OPEN_EXPLANATION_RE.test(q) && !/\bo que e\b/.test(q)) {
+    return null
+  }
   
   // Verificar cache primeiro (melhora performance e match rate)
   const cached = getCachedKBResult(q)
@@ -934,6 +1052,10 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
               'Consigo te ajudar com o DVAi$ e com as funções mostradas aqui no site. Me diga o que você quer entender: análise guiada, proteção inteligente ou aprendizado contínuo?',
             ],
             actions: [{ type: 'navigateRoute', route: '/' }],
+            confidence: 0.98,
+            score: 99,
+            reason: 'forbidden_topic',
+            matchedTerms: [normalizedBad],
           }
           setCachedKBResult(q, result)
           return result
@@ -950,6 +1072,10 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
       const result: KBReplyRaw = {
         entryId: `glossary_${term}`,
         responses: answers,
+        confidence: 0.92,
+        score: 30,
+        reason: `glossary_exact:${normalizedTerm}`,
+        matchedTerms: [normalizedTerm],
       }
       setCachedKBResult(q, result)
       return result
@@ -961,6 +1087,10 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
       const result: KBReplyRaw = {
         entryId: `glossary_${term}`,
         responses: answers,
+        confidence: 0.88,
+        score: 24,
+        reason: `glossary_words:${normalizedTerm}`,
+        matchedTerms: termWords,
       }
       setCachedKBResult(q, result)
       return result
@@ -968,7 +1098,8 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
   }
 
   // Buscar ENTRIES usando índice (busca flexível)
-  const candidateIds = new Map<string, number>() // entryId -> score
+  const candidateMatches = new Map<string, CandidateMeta>()
+  const candidateIds = new Map<string, number>() // compatibilidade para seleção final
 
   // 1. Busca por termos exatos no índice (palavras e frases)
   // CRÍTICO: Priorizar frases (n-grams maiores) sobre palavras individuais
@@ -990,6 +1121,7 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
           const sizeMultiplier = termWordCount >= 3 ? 1.5 : termWordCount === 2 ? 1.2 : 1.0
           const finalScore = Math.floor(weight * sizeMultiplier)
           candidateIds.set(entryId, (candidateIds.get(entryId) || 0) + finalScore)
+          registerCandidateMatch(candidateMatches, entryId, term, finalScore)
         }
       }
     }
@@ -1022,6 +1154,7 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
 
       if (matchScore > 0) {
         candidateIds.set(entry.id, matchScore)
+        registerCandidateMatch(candidateMatches, entry.id, 'substring_match', matchScore)
       }
     }
   }
@@ -1074,16 +1207,21 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
 
       if (fuzzyScore > 0) {
         candidateIds.set(entry.id, fuzzyScore)
+        registerCandidateMatch(candidateMatches, entry.id, 'fuzzy_match', fuzzyScore)
       }
     }
   }
 
   // 3. Busca por palavras-chave importantes (boost para termos como "o que é", "como funciona")
   const importantPhrases = ['o que e', 'que e', 'como funciona', 'como usar', 'o que sao']
+  const hasSpecificFlowTerm = words.some(word => SPECIFIC_FLOW_TERMS.has(word))
   for (const phrase of importantPhrases) {
     if (q.includes(phrase)) {
       // Boost para entries que têm essas frases nas keywords (usar peso da keyword)
       for (const entry of ENTRIES) {
+        if (entry.id === 'elevator_pitch' && hasSpecificFlowTerm) {
+          continue
+        }
         const expandedKeywords = expandKeywords(entry.keywords)
         for (const { term, weight } of expandedKeywords) {
           const normalizedKeyword = normalizeQuestion(term)
@@ -1091,6 +1229,7 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
             // Boost baseado no peso da keyword (mínimo 5 para frases importantes)
             const boost = Math.max(5, weight * 2)
             candidateIds.set(entry.id, (candidateIds.get(entry.id) || 0) + boost)
+            registerCandidateMatch(candidateMatches, entry.id, phrase, boost)
           }
         }
       }
@@ -1128,6 +1267,7 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
             bestEntry = entry
             bestScore = score
           }
+          registerCandidateMatch(candidateMatches, entry.id, commonWords.join(' '), score)
         }
       }
     }
@@ -1139,11 +1279,20 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
     return null
   }
 
+  const bestMeta = candidateMatches.get(bestEntry.id)
+  const matchedTerms = Array.from(bestMeta?.matchedTerms ?? [])
+  const confidence = computeKBConfidence(bestEntry.id, bestScore, matchedTerms, words)
+  const reason = buildKBReason(bestEntry.id, confidence, matchedTerms)
+
   const result: KBReplyRaw = {
     entryId: bestEntry.id,
     responses: bestEntry.responses,
     actions: bestEntry.actions,
     ctas: bestEntry.ctas,
+    confidence,
+    score: bestScore,
+    reason,
+    matchedTerms,
   }
   
   // Salvar no cache antes de retornar

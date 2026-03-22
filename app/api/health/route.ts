@@ -6,6 +6,16 @@ const startTime = Date.now()
 // Importar cache e circuit do route.ts dinamicamente (lazy)
 let cache: Map<string, unknown> | null = null
 let circuit: { failures?: Map<string, { blockedUntil?: number }> } | null = null
+let llmHealthState:
+  | {
+      configured?: boolean
+      provider?: 'groq' | 'openrouter' | null
+      model?: string | null
+      lastKnownErrorType?: string | null
+      lastKnownHttpStatus?: number | null
+      lastSuccessAt?: number | null
+    }
+  | null = null
 let MAX_CACHE_SIZE = 500
 let KB_VERSION = '1.0.0'
 
@@ -15,6 +25,7 @@ async function loadAssistenteMetrics() {
     const stateModule = await import('../assistente/state')
     cache = (stateModule.cache as Map<string, unknown>) || null
     circuit = (stateModule.circuit as typeof circuit) || null
+    llmHealthState = (stateModule.llmHealth as typeof llmHealthState) || null
     MAX_CACHE_SIZE = stateModule.MAX_CACHE_SIZE || 500
     KB_VERSION = stateModule.KB_VERSION || '1.0.0'
   } catch {
@@ -31,6 +42,16 @@ export async function GET() {
     const cacheSize = cache?.size || 0
     const cacheStats = getCacheStats()
     const cacheHitRate = cacheStats.hitRate
+    const provider =
+      llmHealthState?.provider ??
+      (process.env.GROQ_API_KEY ? 'groq' : process.env.OPENROUTER_API_KEY ? 'openrouter' : null)
+    const model =
+      llmHealthState?.model ??
+      (process.env.GROQ_API_KEY
+        ? 'llama-3.3-70b-versatile'
+        : process.env.OPENROUTER_API_KEY
+          ? 'mistralai/mistral-7b-instruct:free'
+          : null)
 
     // Contar bloqueados no circuit breaker
     let blockedCount = 0
@@ -62,6 +83,13 @@ export async function GET() {
         limit: Math.round(memory.heapTotal / 1024 / 1024),
       },
       kbVersion: KB_VERSION,
+      llm: {
+        configured: !!(process.env.GROQ_API_KEY || process.env.OPENROUTER_API_KEY),
+        provider,
+        model,
+        lastKnownErrorType: llmHealthState?.lastKnownErrorType || null,
+        lastSuccessAt: llmHealthState?.lastSuccessAt || null,
+      },
     })
   } catch (error: unknown) {
     return NextResponse.json(

@@ -67,8 +67,15 @@ export function normalizeQuestion(q: string): string {
   return normalized
 }
 
-export function getCacheKey(topic: string, question: string): string {
-  return `${topic}:${normalizeQuestion(question)}:${KB_VERSION}`
+export function getCacheKey(topic: string, question: string, qualifiers: string[] = []): string {
+  const suffix = qualifiers
+    .map(normalizeQuestion)
+    .filter(Boolean)
+    .join(':')
+
+  return suffix
+    ? `${topic}:${normalizeQuestion(question)}:${suffix}:${KB_VERSION}`
+    : `${topic}:${normalizeQuestion(question)}:${KB_VERSION}`
 }
 
 /**

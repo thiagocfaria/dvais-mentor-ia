@@ -38,4 +38,40 @@ test.describe('Vitrine pública', () => {
     await page.goto('/cadastro', { waitUntil: 'networkidle' })
     await expect(page.getByText(/demo de interface/i)).toBeVisible()
   })
+
+  test('assistente mobile abre em texto, mantém fallback visível e permite seleção contextual', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/', { waitUntil: 'networkidle' })
+
+    await page.getByRole('button', { name: /falar com davi/i }).click()
+    await page.getByRole('button', { name: /ativar assistente/i }).click()
+    await expect(page.getByText(/escolha o modo do assistente/i)).toBeVisible()
+
+    await page.getByRole('button', { name: /texto \+ toque/i }).click()
+
+    const selectionButton = page.getByRole('button', { name: /selecionar item/i }).last()
+
+    await expect(page.getByPlaceholder(/escreva sua pergunta/i)).toBeVisible()
+    await expect(selectionButton).toBeVisible()
+
+    await selectionButton.scrollIntoViewIfNeeded()
+    await selectionButton.click()
+    const selectionOverlay = page.getByTestId('assistente-selection-overlay')
+    await expect(selectionOverlay).toBeVisible()
+
+    const overlayBox = await selectionOverlay.boundingBox()
+    expect(overlayBox).not.toBeNull()
+    expect(overlayBox!.y).toBeLessThan(120)
+    expect(overlayBox!.height).toBeLessThan(140)
+    await expect(page.locator('#assistente-live-widget')).toBeHidden()
+
+    const featureHeading = page.locator('#features-section h2').first()
+    await featureHeading.scrollIntoViewIfNeeded()
+    await featureHeading.click()
+
+    await expect(page.getByText(/contexto selecionado/i)).toBeVisible()
+    await expect(page.getByText(/selecionado: o que o projeto realmente entrega/i)).toBeVisible()
+  })
 })

@@ -1,62 +1,104 @@
 'use client'
 
+import type { VoiceRuntimeState } from './types'
 import { ThinkingIndicator, ListeningWave } from './StatusIndicators'
 
 export type AssistantHeaderProps = {
+  runtimeState: VoiceRuntimeState
   continuousMode: boolean
-  isListening: boolean
-  isThinking: boolean
-  isTTSSpeaking: boolean
-  useVoice: boolean
-  ttsAvailable: boolean
-  showTextDebug: boolean
+  selectionMode: boolean
+  speechAvailable: boolean
+  isCoarsePointer: boolean
+  onToggleSelection: () => void
   onDeactivate: () => void
 }
 
+function statusLabel(
+  runtimeState: VoiceRuntimeState,
+  continuousMode: boolean,
+  selectionMode: boolean
+) {
+  if (runtimeState === 'listening') return 'Ouvindo'
+  if (runtimeState === 'thinking') return 'Pensando'
+  if (runtimeState === 'speaking') return 'Falando'
+  if (runtimeState === 'error') return 'Erro'
+  if (selectionMode) return 'Selecionando'
+  return continuousMode ? 'Live pronto' : 'Pronto'
+}
+
 export function AssistantHeader({
+  runtimeState,
   continuousMode,
-  isListening,
-  isThinking,
-  isTTSSpeaking,
-  useVoice,
-  ttsAvailable,
-  showTextDebug,
+  selectionMode: selectionEnabled,
+  speechAvailable,
+  isCoarsePointer,
+  onToggleSelection,
   onDeactivate,
 }: AssistantHeaderProps) {
   return (
-    <div className="flex items-center justify-between p-4 border-b border-white/10">
-      <div>
-        <p className="text-xs uppercase text-blue-200 font-semibold">
-          {continuousMode ? '🎤 Conversa Contínua' : 'Assistente ativo'}
-        </p>
-        <div className="flex items-center gap-2 mt-1">
-          {isListening ? (
-            <ListeningWave />
-          ) : isThinking ? (
-            <ThinkingIndicator />
-          ) : isTTSSpeaking ? (
-            <div className="flex items-center gap-2">
-              <div className="text-cyan-400 text-xs animate-pulse">🔊 Assistente falando...</div>
-            </div>
-          ) : (
-            <p className="text-xs text-gray-400">
-              {continuousMode
-                ? 'Aguardando sua fala...'
-                : useVoice && ttsAvailable
-                  ? 'Voz ativa'
-                  : showTextDebug
-                    ? 'Modo texto'
-                    : 'Voz indisponível'}
+    <div className="border-b border-white/10 bg-gradient-to-r from-slate-950/90 via-slate-900/90 to-slate-950/90 px-4 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-2">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200">
+              Davi Assistente
             </p>
-          )}
+            <p className="mt-1 text-sm text-white">
+              Chat contextual com texto, voz opcional e seleção por toque.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] text-cyan-100">
+              {statusLabel(runtimeState, continuousMode, selectionEnabled)}
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200">
+              {speechAvailable ? (isCoarsePointer ? 'Voz manual' : 'Voz disponível') : 'Somente texto'}
+            </span>
+            {continuousMode && (
+              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] text-emerald-100">
+                Conversa contínua
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            className={`rounded-xl border px-3 py-2 text-xs font-medium transition-colors ${
+              selectionEnabled
+                ? 'border-cyan-300/40 bg-cyan-400/15 text-cyan-100'
+                : 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
+            }`}
+            onClick={onToggleSelection}
+          >
+            {selectionEnabled ? 'Cancelar seleção' : 'Selecionar item'}
+          </button>
+          <button
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white hover:bg-white/10 transition-colors"
+            onClick={onDeactivate}
+          >
+            Fechar
+          </button>
         </div>
       </div>
-      <button
-        className="rounded-lg bg-gray-800 px-3 py-2 text-xs text-white hover:bg-gray-700 transition-colors"
-        onClick={onDeactivate}
-      >
-        Desativar
-      </button>
+
+      <div className="mt-3 min-h-[32px]">
+        {runtimeState === 'listening' ? (
+          <ListeningWave />
+        ) : runtimeState === 'thinking' ? (
+          <ThinkingIndicator />
+        ) : runtimeState === 'speaking' ? (
+          <div className="px-4 py-2 text-xs text-cyan-300">🔊 O assistente está falando.</div>
+        ) : selectionEnabled ? (
+          <div className="px-4 py-2 text-xs text-cyan-200">
+            Toque em qualquer item da página para capturar o contexto dessa parte.
+          </div>
+        ) : (
+          <div className="px-4 py-2 text-xs text-slate-400">
+            Pergunte em texto ou use o microfone quando o navegador suportar bem a captura.
+          </div>
+        )}
+      </div>
     </div>
   )
 }

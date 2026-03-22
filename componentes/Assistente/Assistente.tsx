@@ -1,4 +1,5 @@
 'use client'
+
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { speakText } from '@/biblioteca/assistente/textToSpeech'
 import { ChatMessage } from './ChatMessage'
@@ -15,12 +16,19 @@ import { AssistantHeader } from './AssistantHeader'
 import { ChatArea } from './ChatArea'
 import { InputArea } from './InputArea'
 import { ConsentModal } from './ConsentModal'
-import type { GuidedStep } from './types'
+import type { GuidedStep, VoiceRuntimeState } from './types'
 import { CLICK_CONTEXT_TTL_MS } from './types'
-import { hasSTT, hasTTS, normalizeTtsText } from './utils'
+import { hasSTT, hasTTS, isCoarsePointerDevice, normalizeTtsText } from './utils'
 
-export default function Assistente() {
-  // --- UI state ---
+type AssistenteProps = {
+  onMobileSelectionModeChange?: (active: boolean) => void
+  cancelSelectionToken?: number
+}
+
+export default function Assistente({
+  onMobileSelectionModeChange,
+  cancelSelectionToken = 0,
+}: AssistenteProps) {
   const [isActive, setIsActive] = useState(false)
   const [showConsent, setShowConsent] = useState(false)
   const [useVoice, setUseVoice] = useState(false)
@@ -28,40 +36,68 @@ export default function Assistente() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [question, setQuestion] = useState('')
   const [continuousMode, setContinuousMode] = useState(false)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [isCoarsePointer, setIsCoarsePointer] = useState(false)
 
   const assistantRootRef = useRef<HTMLDivElement>(null)
   const startLiveTimeoutRef = useRef<number | null>(null)
-  // Refs to break circular dependency between useAssistantAPI and useLiveVoice
   const isListeningRef = useRef(false)
   const stopListeningRef = useRef<() => void>(() => {})
   const sharedHandleAskRef = useRef<((speechAvailable: boolean, ttsAvailable: boolean) => Promise<void>) | null>(null)
 
   const showTextDebug = process.env.NEXT_PUBLIC_ASSISTENTE_TEXT_DEBUG === 'true'
   const enableTranscriptDebug = process.env.NODE_ENV !== 'production' || showTextDebug
-  const liveHintFallback =
-    'Use clique único para abrir e duplo clique rápido para selecionar o assunto.'
 
-  // --- hooks ---
+  useEffect(() => {
+    setIsCoarsePointer(isCoarsePointerDevice())
+  }, [])
+
+  const prefersMobileSelectionMode = isCoarsePointer || isCoarsePointerDevice()
+  const shouldUnlockSelectionSurface = Boolean(isActive && selectionMode && prefersMobileSelectionMode)
+
+  useEffect(() => {
+    onMobileSelectionModeChange?.(shouldUnlockSelectionSurface)
+  }, [onMobileSelectionModeChange, shouldUnlockSelectionSurface])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(
+      new CustomEvent('assistente:selection-mode', {
+        detail: {
+          active: shouldUnlockSelectionSurface,
+          mobileSelection: shouldUnlockSelectionSurface,
+        },
+      })
+    )
+  }, [shouldUnlockSelectionSurface])
+
+  const liveHintFallback = selectionMode
+    ? 'Seleção ativa. Toque em um item da página para explicar aquela parte.'
+    : 'Escreva sua pergunta ou use "Selecionar item" para capturar contexto da página.'
+
   const sessionIdRef = useAssistantSession()
   const visibleElements = useVisibleElements(isActive)
   const { highlight, highlightElement, cleanupHighlight, highlightTimeoutRef } = useHighlight()
 
   const {
-    conversationHistory, setConversationHistory,
-    lastQuestion, lastAnswer,
-    handleExportTranscript, handleClearTranscript,
+    conversationHistory,
+    setConversationHistory,
+    handleExportTranscript,
+    handleClearTranscript,
     chatEndRef,
   } = useConversationHistory({ sessionIdRef, enableTranscriptDebug })
 
   const { clickedContext, setClickedContext, hintMessage, setHintMessage } = useClickContext({
     isActive,
+    selectionMode,
+    setSelectionMode,
     showTextDebug,
     assistantRootRef,
     highlight,
     highlightElement,
   })
 
-  const { processActions, handleNavigation, cleanupNavigation } = useNavigationActions({
+  const { processActions, cleanupNavigation } = useNavigationActions({
     isActive,
     useVoice,
     highlight,
@@ -69,16 +105,18 @@ export default function Assistente() {
     setCaption,
   })
 
-  // Refs for continuous restart (needed by both useLiveVoice and useAssistantAPI)
   const isActiveRef = useRef(isActive)
   const continuousModeRef = useRef(continuousMode)
   const isThinkingRef = useRef(false)
   const isTTSSpeakingRef = useRef(false)
 
   const {
-    isListening, setIsListening,
-    toggleListening, startContinuousListeningRef,
-    stopListening, cleanupVoice,
+    isListening,
+    setIsListening,
+    toggleListening,
+    startContinuousListeningRef,
+    stopListening,
+    cleanupVoice,
   } = useLiveVoice({
     hasSTT,
     hasTTS,
@@ -92,19 +130,29 @@ export default function Assistente() {
     setContinuousMode,
   })
 
-  // Wire refs to break circular dependency
   useEffect(() => { isListeningRef.current = isListening }, [isListening])
   useEffect(() => { stopListeningRef.current = stopListening }, [stopListening])
 
   const {
-    handleAsk, handleAskRef,
-    isThinking, isStreaming, mode, qaAnswer,
-    setQaAnswer, isTTSSpeaking, setIsTTSSpeaking, setMode,
+    handleAsk,
+    handleAskRef,
+    isThinking,
+    mode,
+    qaAnswer,
+    setQaAnswer,
+    isTTSSpeaking,
+    setIsTTSSpeaking,
+    setMode,
     abortControllerRef,
+    diagnosticMessage,
+    canReplayAudio,
+    replayAudio,
   } = useAssistantAPI({
     sessionIdRef,
-    conversationHistory, setConversationHistory,
-    clickedContext, setClickedContext,
+    conversationHistory,
+    setConversationHistory,
+    clickedContext,
+    setClickedContext,
     setHintMessage,
     visibleElements,
     useVoice,
@@ -112,11 +160,11 @@ export default function Assistente() {
     continuousMode,
     stopListeningRef,
     processActions,
-    question, setQuestion,
+    question,
+    setQuestion,
     setCaption,
   })
 
-  // Sync refs after state is available
   useEffect(() => { sharedHandleAskRef.current = handleAsk }, [handleAsk])
   useEffect(() => { isActiveRef.current = isActive }, [isActive])
   useEffect(() => { continuousModeRef.current = continuousMode }, [continuousMode])
@@ -125,18 +173,28 @@ export default function Assistente() {
 
   const { isRestartingRef } =
     useContinuousRestart({
-      continuousMode, useVoice, isThinking, isListening,
-      isActive, qaAnswer, isTTSSpeaking, startContinuousListeningRef,
+      continuousMode,
+      useVoice,
+      isThinking,
+      isListening,
+      isActive,
+      qaAnswer,
+      isTTSSpeaking,
+      startContinuousListeningRef,
     })
 
-  // --- derived state ---
-  const liveHintMessage = hintMessage || (caption && caption !== qaAnswer ? caption : liveHintFallback)
   const speechAvailable = hasSTT()
   const ttsAvailable = hasTTS()
 
-  // --- effects ---
+  const runtimeState: VoiceRuntimeState = useMemo(() => {
+    if (!isActive) return 'idle'
+    if (mode === 'erro') return 'error'
+    if (isTTSSpeaking) return 'speaking'
+    if (isThinking) return 'thinking'
+    if (isListening) return 'listening'
+    return selectionMode ? 'armed' : 'idle'
+  }, [isActive, isListening, isThinking, isTTSSpeaking, mode, selectionMode])
 
-  // Click context TTL expiration
   useEffect(() => {
     if (!clickedContext) return
     const timeoutId = window.setTimeout(() => {
@@ -147,26 +205,6 @@ export default function Assistente() {
     return () => clearTimeout(timeoutId)
   }, [clickedContext, setClickedContext])
 
-  // Disable text selection in live mode
-  useEffect(() => {
-    if (typeof window === 'undefined' || !isActive || showTextDebug) return
-    const bodyStyle = document.body.style
-    const prevUserSelect = bodyStyle.userSelect
-    const prevWebkitUserSelect = (bodyStyle as CSSStyleDeclaration & Record<string, string>).webkitUserSelect
-    const prevTouchCallout = (bodyStyle as CSSStyleDeclaration & Record<string, string>).webkitTouchCallout
-
-    bodyStyle.userSelect = 'none'
-    ;(bodyStyle as CSSStyleDeclaration & Record<string, string>).webkitUserSelect = 'none'
-    ;(bodyStyle as CSSStyleDeclaration & Record<string, string>).webkitTouchCallout = 'none'
-
-    return () => {
-      bodyStyle.userSelect = prevUserSelect
-      ;(bodyStyle as CSSStyleDeclaration & Record<string, string>).webkitUserSelect = prevWebkitUserSelect
-      ;(bodyStyle as CSSStyleDeclaration & Record<string, string>).webkitTouchCallout = prevTouchCallout
-    }
-  }, [isActive, showTextDebug])
-
-  // Component cleanup
   useEffect(() => {
     return () => {
       cleanupHighlight()
@@ -181,28 +219,27 @@ export default function Assistente() {
     }
   }, [cleanupHighlight, cleanupNavigation, cleanupVoice, abortControllerRef, isRestartingRef])
 
-  // --- guided tour ---
   const steps: GuidedStep[] = useMemo(
     () => [
       {
         id: 'hero',
-        title: 'Bem-vindo ao DVAi$',
+        title: 'Página inicial',
         description:
-          'Esta é a página inicial. Aqui você encontra informações sobre a plataforma e pode começar seu cadastro clicando em "Começar Agora".',
+          'Aqui fica a visão geral do produto, com proposta, métricas e entrada para cadastro.',
         targetId: 'hero-content',
       },
       {
         id: 'features',
-        title: 'Funcionalidades chave',
+        title: 'Capacidades do assistente',
         description:
-          'O DVAi$ oferece três pilares principais: análise guiada de interface, proteção inteligente para reduzir erro operacional e aprendizado contínuo para explicar o produto com clareza.',
+          'Esta seção resume voz, clique contextual, validação de ações e a camada de resiliência.',
         targetId: 'features-section',
       },
       {
         id: 'stats',
-        title: 'Resultados e métricas',
+        title: 'Indicadores do projeto',
         description:
-          'Veja os indicadores técnicos desta vitrine, incluindo foco em stack, testes e operação do projeto.',
+          'Aqui você vê a parte de stack, testes e foco técnico desta vitrine.',
         targetId: 'stats-section',
       },
     ],
@@ -213,27 +250,36 @@ export default function Assistente() {
     (index: number) => {
       const step = steps[index]
       if (!step) return
+      setCurrentIndex(index)
       const msg = step.description || step.title
       setCaption(msg)
-      if (useVoice && hasTTS()) speakText(normalizeTtsText(msg))
+      setHintMessage(msg)
+      if (useVoice && hasTTS()) {
+        speakText(normalizeTtsText(msg)).catch(() => {})
+      }
       highlight(step.targetId)
     },
-    [useVoice, highlight, steps]
+    [useVoice, highlight, steps, setHintMessage]
   )
 
   const activate = useCallback(
     (withVoice: boolean, continuous: boolean = false) => {
-      const voiceEnabled = withVoice && hasSTT()
+      const voiceEnabled = withVoice && speechAvailable
+      const continuousAllowed = continuous && voiceEnabled && !isCoarsePointer
+
       setUseVoice(voiceEnabled)
       setIsActive(true)
       setShowConsent(false)
       setCurrentIndex(0)
-      const willBeContinuous = continuous && voiceEnabled
-      setContinuousMode(willBeContinuous)
+      setSelectionMode(false)
+      setContinuousMode(continuousAllowed)
 
-      const introMessage =
-        'Assistente ativado. Clique uma vez para abrir, e dê um duplo clique rápido para selecionar o assunto. Depois pergunte por voz e eu respondo em tempo real.'
+      const introMessage = continuousAllowed
+        ? 'Assistente ativado. Você pode falar naturalmente ou selecionar uma parte da página para eu explicar.'
+        : 'Assistente ativado. Use o chat, o microfone manual ou o botão "Selecionar item" para capturar contexto.'
+
       setHintMessage(introMessage)
+      setCaption(introMessage)
       setConversationHistory(prev =>
         [...prev, { question: '', answer: introMessage, timestamp: Date.now() }].slice(-10)
       )
@@ -250,8 +296,8 @@ export default function Assistente() {
         }, 500)
       }
 
-      if (willBeContinuous) {
-        if (voiceEnabled && hasTTS()) {
+      if (continuousAllowed) {
+        if (voiceEnabled && ttsAvailable) {
           setIsTTSSpeaking(true)
           speakText(normalizeTtsText(introMessage))
             .catch(() => {})
@@ -262,11 +308,17 @@ export default function Assistente() {
         } else {
           startLive()
         }
-      } else {
-        runStep(0)
       }
     },
-    [runStep, setConversationHistory, setHintMessage, setIsTTSSpeaking, startContinuousListeningRef]
+    [
+      isCoarsePointer,
+      setConversationHistory,
+      setHintMessage,
+      setIsTTSSpeaking,
+      speechAvailable,
+      startContinuousListeningRef,
+      ttsAvailable,
+    ]
   )
 
   const deactivate = useCallback(() => {
@@ -288,11 +340,41 @@ export default function Assistente() {
     setMode('normal')
     setIsListening(false)
     setContinuousMode(false)
+    setSelectionMode(false)
     setIsTTSSpeaking(false)
     isRestartingRef.current = false
-  }, [stopListening, cleanupHighlight, cleanupNavigation, abortControllerRef, setQaAnswer, setHintMessage, setClickedContext, setMode, setIsListening, setIsTTSSpeaking, isRestartingRef])
+  }, [
+    stopListening,
+    cleanupHighlight,
+    cleanupNavigation,
+    abortControllerRef,
+    setQaAnswer,
+    setHintMessage,
+    setClickedContext,
+    setMode,
+    setIsListening,
+    setIsTTSSpeaking,
+    isRestartingRef,
+  ])
 
-  // --- memoized messages ---
+  const toggleSelectionMode = useCallback(() => {
+    const next = !selectionMode
+    setSelectionMode(next)
+    setHintMessage(
+      next
+        ? prefersMobileSelectionMode
+          ? 'Selecionando item na página. O chat ficou em barra compacta para liberar o toque no conteúdo.'
+          : 'Seleção ativa. Toque em um item da página para capturar o contexto dessa parte.'
+        : 'Seleção cancelada. Continue pelo chat ou reative a seleção.'
+    )
+  }, [prefersMobileSelectionMode, selectionMode, setHintMessage])
+
+  useEffect(() => {
+    if (!cancelSelectionToken) return
+    setSelectionMode(false)
+    setHintMessage('Seleção cancelada. Continue pelo chat ou reative a seleção.')
+  }, [cancelSelectionToken, setHintMessage])
+
   const memoizedMessages = useMemo(
     () =>
       conversationHistory.map((msg, idx) => (
@@ -305,88 +387,83 @@ export default function Assistente() {
               role="assistant"
               content={msg.answer}
               timestamp={msg.timestamp}
-              isStreaming={isStreaming && idx === conversationHistory.length - 1}
             />
           )}
         </div>
       )),
-    [conversationHistory, isStreaming]
+    [conversationHistory]
   )
 
-  // --- render ---
+  const liveHintMessage = hintMessage || caption || liveHintFallback
+
   return (
     <div
       ref={assistantRootRef}
-      className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur flex flex-col relative z-20"
-      style={{ minHeight: '500px', maxHeight: '700px' }}
+      className={`relative z-20 flex h-full min-h-[540px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-black/65 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl ${
+        shouldUnlockSelectionSurface ? 'opacity-70' : ''
+      }`}
     >
       {!isActive ? (
-        <div className="space-y-3 p-4">
-          <p className="text-sm text-gray-200">
-            Assistente ao vivo (voz). Ative para iniciar a apresentação e tirar dúvidas em tempo real.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <button
-              className="group relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:from-blue-500 hover:via-cyan-400 hover:to-blue-500"
-              onClick={() => setShowConsent(true)}
-            >
-              <span className="absolute inset-0 opacity-0 transition-opacity group-hover:opacity-20 bg-white/20" />
-              <span className="relative flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
-                  🎧
-                </span>
-                <span>Ativar IA ao vivo</span>
-              </span>
-            </button>
+        <div className="space-y-4 p-5">
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-500/10 via-blue-500/10 to-transparent p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200">
+              Assistente contextual
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-white">
+              Chat por texto, voz opcional e contexto por toque.
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-200">
+              A experiência recomendada no celular é texto + toque. Quando o navegador suportar bem a captura, você pode usar voz manual ou conversa contínua no desktop.
+            </p>
           </div>
-          <p className="text-xs text-gray-400">
-            Voz em tempo real + seleção por clique para explicar cada parte da página.
+
+          <button
+            className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-950/30 transition-colors hover:from-cyan-400 hover:to-blue-500"
+            onClick={() => setShowConsent(true)}
+          >
+            Ativar assistente
+          </button>
+
+          <p className="text-xs text-slate-400">
+            Funciona em texto em qualquer dispositivo compatível com o site. Voz depende do navegador e das permissões.
           </p>
         </div>
       ) : (
-        <div className="flex flex-col h-full">
+        <div className="flex h-full flex-col">
           <AssistantHeader
+            runtimeState={runtimeState}
             continuousMode={continuousMode}
-            isListening={isListening}
-            isThinking={isThinking}
-            isTTSSpeaking={isTTSSpeaking}
-            useVoice={useVoice}
-            ttsAvailable={ttsAvailable}
-            showTextDebug={showTextDebug}
+            selectionMode={selectionMode}
+            speechAvailable={speechAvailable}
+            isCoarsePointer={isCoarsePointer}
+            onToggleSelection={toggleSelectionMode}
             onDeactivate={deactivate}
           />
           <ChatArea
-            showTextDebug={showTextDebug}
             memoizedMessages={memoizedMessages}
             isThinking={isThinking}
-            isStreaming={isStreaming}
-            isListening={isListening}
             chatEndRef={chatEndRef}
-            lastQuestion={lastQuestion}
-            lastAnswer={lastAnswer}
-            qaAnswer={qaAnswer}
             caption={caption}
             hintMessage={hintMessage}
             liveHintFallback={liveHintFallback}
             clickedContext={clickedContext}
             setClickedContext={setClickedContext}
             setHintMessage={setHintMessage}
+            selectionMode={selectionMode}
+            hasMessages={conversationHistory.length > 0}
           />
           <InputArea
-            showTextDebug={showTextDebug}
             enableTranscriptDebug={enableTranscriptDebug}
             continuousMode={continuousMode}
             isListening={isListening}
             isThinking={isThinking}
             isTTSSpeaking={isTTSSpeaking}
-            isStreaming={isStreaming}
             useVoice={useVoice}
             speechAvailable={speechAvailable}
             ttsAvailable={ttsAvailable}
             mode={mode}
+            runtimeState={runtimeState}
             question={question}
-            caption={caption}
-            qaAnswer={qaAnswer}
             liveHintMessage={liveHintMessage}
             steps={steps}
             currentIndex={currentIndex}
@@ -396,6 +473,12 @@ export default function Assistente() {
             runStep={runStep}
             handleExportTranscript={handleExportTranscript}
             handleClearTranscript={handleClearTranscript}
+            selectionMode={selectionMode}
+            toggleSelectionMode={toggleSelectionMode}
+            canReplayAudio={canReplayAudio}
+            replayAudio={replayAudio}
+            diagnosticMessage={diagnosticMessage}
+            isCoarsePointer={isCoarsePointer}
           />
         </div>
       )}
@@ -403,7 +486,7 @@ export default function Assistente() {
       {showConsent && (
         <ConsentModal
           speechAvailable={speechAvailable}
-          showTextDebug={showTextDebug}
+          isCoarsePointer={isCoarsePointer}
           onActivate={activate}
           onCancel={() => setShowConsent(false)}
         />

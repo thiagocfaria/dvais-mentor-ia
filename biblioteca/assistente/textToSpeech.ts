@@ -17,6 +17,13 @@ type TTSMessage = {
   pitch?: number
 }
 
+export type TTSResult =
+  | { ok: true; via: 'speechSynthesis' | 'external_audio' }
+  | {
+      ok: false
+      reason: 'tts_unavailable' | 'autoplay_blocked' | 'external_tts_failed' | 'speech_synthesis_error'
+    }
+
 const messageQueue: TTSMessage[] = []
 let isProcessing = false
 let currentUtterance: SpeechSynthesisUtterance | null = null
@@ -45,10 +52,10 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   }
 }
 
-function processTTSMessage(message: TTSMessage): Promise<void> {
+function processTTSMessage(message: TTSMessage): Promise<TTSResult> {
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      resolve()
+      resolve({ ok: false, reason: 'tts_unavailable' })
       return
     }
 
@@ -76,7 +83,7 @@ function processTTSMessage(message: TTSMessage): Promise<void> {
         currentUtterance = null
         isProcessing = false
         isSpeakingRef.current = false
-        resolve()
+        resolve({ ok: true, via: 'speechSynthesis' })
         // Processar próxima mensagem na queue
         processQueue()
       }
@@ -103,22 +110,28 @@ function processTTSMessage(message: TTSMessage): Promise<void> {
   })
 }
 
-function processQueue(): Promise<void> {
+function processQueue(): Promise<TTSResult> {
   return new Promise(resolve => {
     if (isProcessing || messageQueue.length === 0) {
-      resolve()
+      resolve({ ok: false, reason: 'tts_unavailable' })
       return
     }
 
     const message = messageQueue.shift()
     if (!message) {
-      resolve()
+      resolve({ ok: false, reason: 'tts_unavailable' })
       return
     }
 
     processTTSMessage(message)
       .then(resolve)
-      .catch(() => resolve())
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message.toLowerCase() : ''
+        resolve({
+          ok: false,
+          reason: message.includes('notallowed') ? 'autoplay_blocked' : 'speech_synthesis_error',
+        })
+      })
   })
 }
 
@@ -131,9 +144,10 @@ function cancelCurrent() {
   messageQueue.length = 0
 }
 
-export async function speakText(text: string) {
+export async function speakText(text: string): Promise<TTSResult> {
   const trimmed = text.slice(0, 400)
   const endpoint = process.env.NEXT_PUBLIC_TTS_URL
+  let externalFailure = false
 
   // Tentar endpoint externo primeiro
   if (endpoint) {
@@ -152,11 +166,16 @@ export async function speakText(text: string) {
       const data = await resp.json().catch(() => ({}))
       if (data?.audioUrl) {
         const audio = new Audio(data.audioUrl)
-        await audio.play()
-        return
+        try {
+          await audio.play()
+          return { ok: true, via: 'external_audio' }
+        } catch {
+          externalFailure = true
+          // fallback abaixo
+        }
       }
     } catch {
-      /* fallback abaixo */
+      externalFailure = true
     }
   }
 
@@ -175,7 +194,7 @@ export async function speakText(text: string) {
     return processQueue()
   }
 
-  return Promise.resolve()
+  return Promise.resolve({ ok: false, reason: externalFailure ? 'external_tts_failed' : 'tts_unavailable' })
 }
 
 export function cancelSpeech() {

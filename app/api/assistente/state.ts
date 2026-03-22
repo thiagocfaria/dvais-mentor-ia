@@ -7,6 +7,15 @@ export type AssistantResponse = {
   mode?: string
 }
 
+export type LLMHealthState = {
+  configured: boolean
+  provider: 'groq' | 'openrouter' | null
+  model: string | null
+  lastKnownErrorType: string | null
+  lastKnownHttpStatus: number | null
+  lastSuccessAt: number | null
+}
+
 export type CacheEntry = {
   response: AssistantResponse
   expiresAt: number
@@ -51,4 +60,17 @@ export const cache = new Map<string, CacheEntry>()
  */
 export const circuit: CircuitState = {
   failures: new Map(),
+}
+
+export const llmHealth: LLMHealthState = {
+  configured: false,
+  provider: null,
+  model: null,
+  lastKnownErrorType: null,
+  lastKnownHttpStatus: null,
+  lastSuccessAt: null,
+}
+
+export function updateLLMHealth(partial: Partial<LLMHealthState>) {
+  Object.assign(llmHealth, partial)
 }

@@ -56,7 +56,15 @@ export async function validateRequestBody(
     return { ok: false, response: NextResponse.json({ error: 'Payload muito grande.' }, { status: 413 }) }
   }
 
-  const { question, history: historyRaw = [], context: contextRaw = {} } = body
+  const {
+    question,
+    history: historyRaw = [],
+    context: rawContext = {},
+    clickedTargetId,
+    clickedText,
+    clickedTag,
+    currentPage,
+  } = body as Record<string, unknown>
   if (!question || typeof question !== 'string') {
     return { ok: false, response: NextResponse.json({ error: 'Pergunta inválida' }, { status: 400 }) }
   }
@@ -69,5 +77,23 @@ export async function validateRequestBody(
     return { ok: false, response: NextResponse.json({ error: 'Pergunta inválida após sanitização.' }, { status: 400 }) }
   }
 
-  return { ok: true, question, sanitized, historyRaw, contextRaw }
+  const normalizedHistoryRaw = Array.isArray(historyRaw) ? historyRaw : []
+
+  const contextRaw =
+    rawContext && typeof rawContext === 'object' ? { ...(rawContext as Record<string, unknown>) } : {}
+
+  if (typeof clickedTargetId === 'string' && !('clickedTargetId' in contextRaw)) {
+    contextRaw.clickedTargetId = clickedTargetId
+  }
+  if (typeof clickedText === 'string' && !('clickedText' in contextRaw)) {
+    contextRaw.clickedText = clickedText
+  }
+  if (typeof clickedTag === 'string' && !('clickedTag' in contextRaw)) {
+    contextRaw.clickedTag = clickedTag
+  }
+  if (typeof currentPage === 'string' && !('currentPage' in contextRaw)) {
+    contextRaw.currentPage = currentPage
+  }
+
+  return { ok: true, question, sanitized, historyRaw: normalizedHistoryRaw, contextRaw }
 }

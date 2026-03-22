@@ -1,9 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getSelectorForTargetId } from '@/biblioteca/assistente/actionValidator'
-
-const DOUBLE_CLICK_DELAY_MS = 260
 
 export type ClickedContext = {
   targetId?: string
@@ -14,6 +12,8 @@ export type ClickedContext = {
 
 type UseClickContextArgs = {
   isActive: boolean
+  selectionMode: boolean
+  setSelectionMode: (value: boolean) => void
   showTextDebug: boolean
   assistantRootRef: React.RefObject<HTMLElement>
   highlight: (targetId: string) => void
@@ -22,6 +22,8 @@ type UseClickContextArgs = {
 
 export function useClickContext({
   isActive,
+  selectionMode,
+  setSelectionMode,
   showTextDebug,
   assistantRootRef,
   highlight,
@@ -29,8 +31,6 @@ export function useClickContext({
 }: UseClickContextArgs) {
   const [clickedContext, setClickedContext] = useState<ClickedContext | null>(null)
   const [hintMessage, setHintMessage] = useState('')
-  const pendingClickRef = useRef<{ timerId: number | null; target: HTMLElement | null } | null>(null)
-  const bypassClickRef = useRef(false)
 
   const resolveClickedTargetId = useCallback((element: HTMLElement | null): string | null => {
     if (!element) return null
@@ -48,62 +48,52 @@ export function useClickContext({
     return text.replace(/\s+/g, ' ').trim().slice(0, 140)
   }, [])
 
+  const resolveUnderlyingTarget = useCallback(
+    (target: HTMLElement | null, point?: { x: number; y: number }) => {
+      if (!target) return null
+      const widgetRoot = target.closest('[data-testid="assistente-widget"]') as HTMLElement | null
+      const assistantRoot = assistantRootRef.current
+      const blockingRoot =
+        widgetRoot || (assistantRoot?.contains(target) ? assistantRoot : null)
+
+      if (!blockingRoot) {
+        return target
+      }
+      if (!point) return null
+
+      const previousPointerEvents = blockingRoot.style.pointerEvents
+      blockingRoot.style.pointerEvents = 'none'
+      const underlying = document.elementFromPoint(point.x, point.y) as HTMLElement | null
+      blockingRoot.style.pointerEvents = previousPointerEvents
+
+      if (underlying && !blockingRoot.contains(underlying)) {
+        return underlying
+      }
+      return null
+    },
+    [assistantRootRef]
+  )
+
   useEffect(() => {
     if (typeof window === 'undefined' || !isActive) return
 
-    const handleClickCapture = (event: MouseEvent) => {
-      if (showTextDebug) return
-      if (bypassClickRef.current) {
-        bypassClickRef.current = false
-        return
-      }
-      if (event.button !== 0) return
-      const target = event.target as HTMLElement | null
-      if (!target) return
-      if (assistantRootRef.current?.contains(target)) return
+    const captureSelection = (
+      target: HTMLElement | null,
+      event: Event,
+      point?: { x: number; y: number }
+    ) => {
+      if (!selectionMode || showTextDebug) return
+      if (target?.closest('[data-assistente-selection-ui="true"]')) return
+      const resolvedTarget = resolveUnderlyingTarget(target, point)
+      if (!resolvedTarget) return
 
-      const interactive = target.closest(
-        'a, button, [role="button"], [role="link"]'
-      ) as HTMLElement | null
-      if (!interactive) return
-
-      event.preventDefault()
-      event.stopPropagation()
-
-      if (pendingClickRef.current?.timerId) {
-        clearTimeout(pendingClickRef.current.timerId)
-      }
-
-      pendingClickRef.current = {
-        target: interactive,
-        timerId: window.setTimeout(() => {
-          const pending = pendingClickRef.current
-          pendingClickRef.current = { timerId: null, target: null }
-          if (!pending?.target) return
-
-          bypassClickRef.current = true
-          pending.target.click()
-        }, DOUBLE_CLICK_DELAY_MS),
-      }
-    }
-
-    const handleDoubleClick = (event: MouseEvent) => {
-      if (event.button !== 0) return
-      const target = event.target as HTMLElement | null
-      if (!target) return
-      if (assistantRootRef.current?.contains(target)) return
-
-      event.preventDefault()
-      event.stopPropagation()
-
-      if (pendingClickRef.current?.timerId) {
-        clearTimeout(pendingClickRef.current.timerId)
-        pendingClickRef.current = { timerId: null, target: null }
-      }
-
-      const candidate = (target.closest(
+      const candidate = (resolvedTarget.closest(
         'button, a, [role="button"], [role="link"], [data-ia], [id], section, article, header, footer, h1, h2, h3, p, li'
-      ) || target) as HTMLElement
+      ) || resolvedTarget) as HTMLElement
+
+      event.preventDefault()
+      event.stopPropagation()
+
       const targetId = resolveClickedTargetId(candidate)
       const text = extractElementText(candidate)
       const tag = candidate?.tagName?.toLowerCase() || ''
@@ -114,9 +104,8 @@ export function useClickContext({
         tag: tag || undefined,
         timestamp: Date.now(),
       })
-      setHintMessage(
-        `Selecionado: ${text || 'este item'}. Agora pergunte por voz sobre esse assunto.`
-      )
+      setHintMessage(`Selecionado: ${text || 'este item'}. Agora pergunte no chat ou toque no microfone.`)
+      setSelectionMode(false)
 
       if (targetId) {
         highlight(targetId)
@@ -125,15 +114,39 @@ export function useClickContext({
       }
     }
 
+    const handleClickCapture = (event: MouseEvent) => {
+      if (event.button !== 0) return
+      captureSelection(event.target as HTMLElement | null, event, {
+        x: event.clientX,
+        y: event.clientY,
+      })
+    }
+
+    const handleTouchCapture = (event: TouchEvent) => {
+      const touchTarget =
+        (event.changedTouches[0]?.target as HTMLElement | null) ??
+        (event.target as HTMLElement | null)
+      captureSelection(touchTarget, event, {
+        x: event.changedTouches[0]?.clientX ?? 0,
+        y: event.changedTouches[0]?.clientY ?? 0,
+      })
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && selectionMode) {
+        setSelectionMode(false)
+        setHintMessage('Seleção cancelada. Você pode continuar no chat ou escolher outro item.')
+      }
+    }
+
     document.addEventListener('click', handleClickCapture, true)
-    document.addEventListener('dblclick', handleDoubleClick, true)
+    document.addEventListener('touchend', handleTouchCapture, true)
+    document.addEventListener('keydown', handleKeyDown, true)
+
     return () => {
       document.removeEventListener('click', handleClickCapture, true)
-      document.removeEventListener('dblclick', handleDoubleClick, true)
-      if (pendingClickRef.current?.timerId) {
-        clearTimeout(pendingClickRef.current.timerId)
-      }
-      pendingClickRef.current = null
+      document.removeEventListener('touchend', handleTouchCapture, true)
+      document.removeEventListener('keydown', handleKeyDown, true)
     }
   }, [
     assistantRootRef,
@@ -142,6 +155,9 @@ export function useClickContext({
     highlightElement,
     isActive,
     resolveClickedTargetId,
+    resolveUnderlyingTarget,
+    selectionMode,
+    setSelectionMode,
     showTextDebug,
   ])
 

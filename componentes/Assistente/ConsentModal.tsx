@@ -2,67 +2,63 @@
 
 export type ConsentModalProps = {
   speechAvailable: boolean
-  showTextDebug: boolean
+  isCoarsePointer: boolean
   onActivate: (withVoice: boolean, continuous?: boolean) => void
   onCancel: () => void
 }
 
 export function ConsentModal({
   speechAvailable,
-  showTextDebug,
+  isCoarsePointer,
   onActivate,
   onCancel,
 }: ConsentModalProps) {
   return (
-    <div className="mt-3 rounded-xl border border-white/10 bg-black/60 p-3 text-sm text-white space-y-2">
-      <p className="font-semibold">Consentimento de voz</p>
-      <p className="text-xs text-gray-200">Ative o modo ao vivo para começar:</p>
-      <div className="flex flex-col gap-2">
+    <div className="m-3 rounded-2xl border border-white/10 bg-slate-950/95 p-4 text-sm text-white shadow-2xl">
+      <p className="text-sm font-semibold">Escolha o modo do assistente</p>
+      <p className="mt-1 text-xs text-slate-300">
+        No celular, o modo recomendado é texto + toque. A voz continua disponível apenas quando o navegador suportar bem a captura.
+      </p>
+
+      <div className="mt-4 grid gap-3">
         <button
-          className="rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2.5 text-sm font-semibold text-white hover:from-blue-700 hover:to-cyan-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={() => onActivate(true, true)}
+          className="rounded-xl border border-cyan-300/20 bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-3 text-left text-sm font-semibold text-white shadow-lg shadow-cyan-900/30 hover:from-cyan-400 hover:to-blue-500 transition-colors"
+          onClick={() => onActivate(false)}
+        >
+          Texto + toque
+        </button>
+
+        <button
+          className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm font-medium text-white transition-colors hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => onActivate(true, false)}
           disabled={!speechAvailable}
         >
-          🎤 Conversa Contínua (Live)
+          Voz manual (push-to-talk)
         </button>
-        <p className="text-xs text-gray-400 px-2">
-          Escuta contínua - fale naturalmente, e use duplo clique para selecionar o assunto
-        </p>
 
-        {showTextDebug && (
-          <>
-            <button
-              className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => onActivate(true, false)}
-              disabled={!speechAvailable}
-            >
-              🎙️ Voz Manual (debug)
-            </button>
-            <p className="text-xs text-gray-400 px-2">
-              Clique para falar, depois clique em &quot;Perguntar&quot;
-            </p>
-
-            <button
-              className="rounded-lg bg-gray-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-600 transition-colors"
-              onClick={() => onActivate(false)}
-            >
-              ⌨️ Apenas Texto (debug)
-            </button>
-          </>
+        {!isCoarsePointer && (
+          <button
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm font-medium text-white transition-colors hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => onActivate(true, true)}
+            disabled={!speechAvailable}
+          >
+            Conversa contínua
+          </button>
         )}
-
-        <button
-          className="rounded-lg bg-gray-800 px-3 py-2 text-xs text-white hover:bg-gray-700 transition-colors"
-          onClick={onCancel}
-        >
-          Cancelar
-        </button>
       </div>
+
       {!speechAvailable && (
-        <p className="text-xs text-amber-200 mt-2">
-          ⚠️ Sem Web Speech API ou permissão negada. Use um navegador compatível.
+        <p className="mt-3 rounded-xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+          Este navegador não oferece captura de voz confiável aqui. O chat continua funcionando em texto.
         </p>
       )}
+
+      <button
+        className="mt-4 rounded-lg bg-white/5 px-3 py-2 text-xs text-white hover:bg-white/10 transition-colors"
+        onClick={onCancel}
+      >
+        Cancelar
+      </button>
     </div>
   )
 }

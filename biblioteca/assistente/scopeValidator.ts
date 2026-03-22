@@ -29,13 +29,24 @@ export const SCOPE_KEYWORDS = [
   'cadastro', 'análise', 'analise', 'proteção', 'segurança', 'aprendizado', 'resultado', 'métrica', 'estatística',
   'dvais', 'mentor', 'plataforma', 'como funciona', 'o que é', 'investimento', 'corretora', 'guia', 'funcionalidade',
   'preço', 'valor', 'plano', 'assinatura', 'suporte', 'ajuda', 'tutorial', 'iniciante', 'aventureiro', 'analista',
+  'assistente', 'chat', 'voz', 'celular', 'mobile', 'microfone', 'áudio', 'audio', 'toque', 'clique',
+  'contexto', 'acao', 'ações', 'resposta', 'token', 'quota', 'cache', 'rate limit', 'circuit breaker',
+  'produto', 'projeto', 'site', 'pagina', 'página', 'oferece', 'oferecem', 'ia', 'kb', 'base de conhecimento', 'llm',
 ] as const
 
 /**
  * Verifica se a pergunta sanitizada está no escopo do produto.
  */
-export function isInScope(sanitizedQuestion: string, hasClickContext: boolean): boolean {
+export function isInScope(
+  sanitizedQuestion: string,
+  hasClickContext: boolean,
+  options?: {
+    allowContextualFollowUp?: boolean
+    topicHint?: string | null
+  }
+): boolean {
   if (hasClickContext) return true
+  if (options?.allowContextualFollowUp && options.topicHint) return true
   const normalized = sanitizedQuestion.toLowerCase()
   return SCOPE_KEYWORDS.some((k) => normalized.includes(k))
 }

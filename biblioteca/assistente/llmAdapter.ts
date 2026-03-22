@@ -3,7 +3,7 @@ import { enforceSpeechDuration } from '@/biblioteca/assistente/speechGate'
 import { validateActions } from '@/biblioteca/assistente/actionValidator'
 import type { Action } from '@/biblioteca/assistente/actionValidator'
 import { getIntentBasedPrompt, type DetectedIntent } from '@/biblioteca/assistente/intentDetection'
-import type { AssistantResponse } from '@/app/api/assistente/state'
+import { updateLLMHealth, type AssistantResponse } from '@/app/api/assistente/state'
 
 // --- fetch helpers ---
 
@@ -86,6 +86,17 @@ QUANDO USAR CADA ACTION:
 - highlightSection: Quando quer destacar visualmente uma seção (pode combinar com scrollToSection).
 - showTooltip: Quando quer mostrar dica contextual sobre um elemento.
 
+ESTILO DE RESPOSTA:
+- Responda primeiro ao que o usuário perguntou, sem desviar para um pitch genérico.
+- Se o usuário relatar falha, bug, voz, microfone, celular ou navegação, responda como suporte de produto: descreva a causa provável de forma simples e proponha a próxima ação mais útil.
+- Em falhas de celular, microfone, voz ou áudio, cite quando fizer sentido: compatibilidade do navegador, permissão de microfone, necessidade de gesto do usuário e fallback texto + toque.
+- Se a falha for de microfone/captação, peça para liberar a permissão no navegador e usar "Tocar para falar".
+- Se a falha for de fala/áudio, explique que alguns navegadores exigem toque do usuário e a ação "Ouvir resposta".
+- Se houver contexto de clique e a pergunta for genérica, explique o item clicado antes de sugerir navegação.
+- Use o histórico para manter continuidade, sem repetir a mesma apresentação em toda resposta.
+- Se a pergunta for curta ou elíptica e houver CONTEXTO DE CONVERSA, interprete como continuação do último tópico forte.
+- Se houver um próximo passo claro, avance a resposta em vez de repetir a FAQ anterior.
+
 Sua resposta deve ser curta (máximo 15 segundos de fala, ~250 caracteres).
 Sempre responda em JSON válido com este formato:
 {
@@ -101,17 +112,89 @@ NUNCA retorne selector CSS direto, sempre use targetId.`
 // --- types ---
 
 export type LLMResult =
-  | { type: 'response'; response: AssistantResponse & { responses?: unknown; entryId?: string; ctas?: unknown } }
+  | {
+      type: 'response'
+      provider: 'groq' | 'openrouter'
+      model: string
+      response: AssistantResponse & { responses?: unknown; entryId?: string; ctas?: unknown }
+    }
   | { type: 'stream'; streamResponse: Response }
-  | { type: 'error'; status: number; message: string }
+  | {
+      type: 'error'
+      status: number
+      message: string
+      errorType: string
+      provider: 'groq' | 'openrouter' | null
+      model: string | null
+      httpStatus: number | null
+    }
 
 export type LLMRequest = {
   sanitizedQuestion: string
+  effectiveQuestion: string
   validHistory: Array<{ role: string; content: string }>
   clickContextBlock: string
+  conversationContextBlock: string
   detectedIntent: DetectedIntent
   streamMode: boolean
   allowedIds: readonly string[]
+}
+
+function mapProviderError(args: {
+  provider: 'groq' | 'openrouter'
+  model: string
+  status: number
+  body: string
+}): Extract<LLMResult, { type: 'error' }> {
+  const { provider, model, status, body } = args
+  const normalized = body.toLowerCase()
+
+  let errorType = 'provider_error'
+  let message = 'Assistente temporariamente indisponível.'
+
+  if (status === 401) {
+    errorType = 'unauthorized'
+    message = 'A chave da IA está inválida ou ausente.'
+  } else if (status === 403) {
+    errorType = 'forbidden'
+    message = 'O provider recusou a requisição da IA.'
+  } else if (status === 404) {
+    errorType = 'model_not_found'
+    message = 'O modelo configurado não está disponível no provider.'
+  } else if (status === 429) {
+    errorType =
+      normalized.includes('quota') || normalized.includes('credit') || normalized.includes('budget')
+        ? 'quota_exceeded'
+        : 'rate_limited'
+    message =
+      errorType === 'quota_exceeded'
+        ? 'Os créditos da IA foram esgotados ou o orçamento foi bloqueado.'
+        : 'O provider limitou temporariamente as requisições da IA.'
+  } else if (status >= 500) {
+    errorType = 'provider_unavailable'
+    message = 'O provider da IA está indisponível no momento.'
+  } else if (normalized.includes('model')) {
+    errorType = 'model_error'
+    message = 'O provider rejeitou o modelo configurado.'
+  }
+
+  updateLLMHealth({
+    configured: true,
+    provider,
+    model,
+    lastKnownErrorType: errorType,
+    lastKnownHttpStatus: status,
+  })
+
+  return {
+    type: 'error',
+    status: status >= 400 && status < 600 ? status : 502,
+    message,
+    errorType,
+    provider,
+    model,
+    httpStatus: status,
+  }
 }
 
 // --- adapter ---
@@ -127,8 +210,26 @@ export async function callLLM(
   const openRouterKey = process.env.OPENROUTER_API_KEY
 
   if (!groqKey && !openRouterKey) {
-    return { type: 'error', status: 503, message: 'Assistente temporariamente indisponível.' }
+    updateLLMHealth({
+      configured: false,
+      provider: null,
+      model: null,
+      lastKnownErrorType: 'missing_api_key',
+      lastKnownHttpStatus: null,
+    })
+    return {
+      type: 'error',
+      status: 503,
+      message: 'Nenhuma chave de IA foi configurada no servidor.',
+      errorType: 'missing_api_key',
+      provider: null,
+      model: null,
+      httpStatus: null,
+    }
   }
+
+  const provider = groqKey ? 'groq' : 'openrouter'
+  const model = groqKey ? 'llama-3.3-70b-versatile' : 'mistralai/mistral-7b-instruct:free'
 
   const llmUrl = groqKey
     ? 'https://api.groq.com/openai/v1/chat/completions'
@@ -148,7 +249,7 @@ export async function callLLM(
   // Build system prompt with click context
   const systemPrompt = getIntentBasedPrompt(
     request.detectedIntent,
-    BASE_SYSTEM_PROMPT + request.clickContextBlock
+    BASE_SYSTEM_PROMPT + request.clickContextBlock + request.conversationContextBlock
   )
 
   // Build messages
@@ -160,12 +261,12 @@ export async function callLLM(
       messages.push({ role: h.role as 'user' | 'assistant', content: h.content })
     }
   }
-  messages.push({ role: 'user', content: request.sanitizedQuestion })
+  messages.push({ role: 'user', content: request.effectiveQuestion || request.sanitizedQuestion })
 
   const llmBody: Record<string, unknown> = {
-    model: groqKey ? 'llama-3.3-70b-versatile' : 'mistralai/mistral-7b-instruct:free',
+    model,
     messages,
-    temperature: 0.7,
+    temperature: 0.4,
     max_tokens: 200,
     response_format: { type: 'json_object' },
   }
@@ -174,7 +275,15 @@ export async function callLLM(
 
   // Check abort before calling
   if (signal?.aborted) {
-    return { type: 'error', status: 499, message: 'Requisição cancelada.' }
+    return {
+      type: 'error',
+      status: 499,
+      message: 'Requisição cancelada.',
+      errorType: 'request_aborted',
+      provider,
+      model,
+      httpStatus: 499,
+    }
   }
 
   // --- streaming mode ---
@@ -249,32 +358,119 @@ export async function callLLM(
   }
 
   // --- non-streaming mode ---
-  const llmResp = await fetchWithRetry(
-    llmUrl,
-    { method: 'POST', headers: llmHeaders, body: JSON.stringify(llmBody) },
-    timeoutMs,
-    2
-  )
+  let llmResp: Response
+  try {
+    llmResp = await fetchWithRetry(
+      llmUrl,
+      { method: 'POST', headers: llmHeaders, body: JSON.stringify(llmBody) },
+      timeoutMs,
+      2
+    )
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'unknown'
+    const errorType = errorMessage === 'Request timeout' ? 'timeout' : 'network_error'
+
+    updateLLMHealth({
+      configured: true,
+      provider,
+      model,
+      lastKnownErrorType: errorType,
+      lastKnownHttpStatus: null,
+    })
+
+    return {
+      type: 'error',
+      status: errorType === 'timeout' ? 504 : 502,
+      message:
+        errorType === 'timeout'
+          ? 'A IA demorou demais para responder.'
+          : 'Falha de rede ao consultar o provider da IA.',
+      errorType,
+      provider,
+      model,
+      httpStatus: null,
+    }
+  }
 
   if (!llmResp.ok) {
-    return { type: 'error', status: 500, message: `LLM ${llmResp.status}` }
+    const body = await llmResp.text().catch(() => '')
+    logOps({
+      topic: 'assistente',
+      status: 'llm_http_error',
+      provider,
+      model,
+      httpStatus: llmResp.status,
+      error: body.slice(0, 500),
+      user: 'system',
+    }).catch(() => {})
+    return mapProviderError({
+      provider,
+      model,
+      status: llmResp.status,
+      body,
+    })
   }
 
   const llmData = await llmResp.json()
   const content = llmData.choices?.[0]?.message?.content
   if (!content) {
-    return { type: 'error', status: 500, message: 'llm_no_content' }
+    updateLLMHealth({
+      configured: true,
+      provider,
+      model,
+      lastKnownErrorType: 'no_content',
+      lastKnownHttpStatus: 502,
+    })
+    return {
+      type: 'error',
+      status: 502,
+      message: 'O provider respondeu sem conteúdo.',
+      errorType: 'no_content',
+      provider,
+      model,
+      httpStatus: 502,
+    }
   }
 
   let parsed: AssistantResponse & { responses?: unknown; entryId?: string; ctas?: unknown }
   try {
     parsed = JSON.parse(content)
   } catch {
-    return { type: 'error', status: 500, message: 'llm_invalid_json' }
+    updateLLMHealth({
+      configured: true,
+      provider,
+      model,
+      lastKnownErrorType: 'invalid_json',
+      lastKnownHttpStatus: 502,
+    })
+    return {
+      type: 'error',
+      status: 502,
+      message: 'A IA retornou um formato inválido.',
+      errorType: 'invalid_json',
+      provider,
+      model,
+      httpStatus: 502,
+    }
   }
 
   if (!parsed.spokenText || typeof parsed.spokenText !== 'string') {
-    return { type: 'error', status: 500, message: 'llm_invalid_schema' }
+    updateLLMHealth({
+      configured: true,
+      provider,
+      model,
+      lastKnownErrorType: 'invalid_schema',
+      lastKnownHttpStatus: 502,
+    })
+    return {
+      type: 'error',
+      status: 502,
+      message: 'A IA retornou uma resposta sem o campo principal de fala.',
+      errorType: 'invalid_schema',
+      provider,
+      model,
+      httpStatus: 502,
+    }
   }
 
   const spoken = enforceSpeechDuration(parsed.spokenText)
@@ -283,8 +479,19 @@ export async function callLLM(
     [...request.allowedIds]
   )
 
+  updateLLMHealth({
+    configured: true,
+    provider,
+    model,
+    lastKnownErrorType: null,
+    lastKnownHttpStatus: 200,
+    lastSuccessAt: Date.now(),
+  })
+
   return {
     type: 'response',
+    provider,
+    model,
     response: {
       spokenText: spoken,
       onScreenTopic: parsed.onScreenTopic,

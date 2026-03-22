@@ -31,6 +31,8 @@ export type SpeechRecognitionOptions = {
 let recognitionInstance: SpeechRecognition | null = null
 let workerInstance: Worker | null = null
 let useWorker = false
+let microphonePermissionState: 'unknown' | 'granted' | 'denied' = 'unknown'
+let permissionRequestPromise: Promise<boolean> | null = null
 
 // Nota: Web Speech API não pode ser usada em Workers
 // Os workers são criados mas não são usados para SpeechRecognition
@@ -60,22 +62,33 @@ export function isSpeechRecognitionAvailable(): boolean {
 
 // Solicitar permissão de microfone explicitamente
 async function requestMicrophonePermission(): Promise<boolean> {
+  if (microphonePermissionState === 'granted') return true
+  if (microphonePermissionState === 'denied') return false
+  if (permissionRequestPromise) return permissionRequestPromise
+
   if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     return false
   }
 
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    // Parar o stream imediatamente - só precisamos da permissão
-    stream.getTracks().forEach(track => track.stop())
-    return true
-  } catch (error: unknown) {
-    const err = error as { name?: string; message?: string }
-    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+  permissionRequestPromise = (async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(track => track.stop())
+      microphonePermissionState = 'granted'
+      return true
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string }
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        microphonePermissionState = 'denied'
+        return false
+      }
       return false
+    } finally {
+      permissionRequestPromise = null
     }
-    return false
-  }
+  })()
+
+  return permissionRequestPromise
 }
 
 export async function startSpeechRecognition(
@@ -171,6 +184,7 @@ export async function startSpeechRecognition(
     } else if (event.error === 'audio-capture') {
       errorMsg = 'Microfone não encontrado ou sem permissão.'
     } else if (event.error === 'not-allowed') {
+      microphonePermissionState = 'denied'
       errorMsg = 'Permissão de microfone negada. Use o botão de texto.'
     }
     callbacks.onError?.(errorMsg)
@@ -217,4 +231,9 @@ export function stopSpeechRecognition() {
     }
     recognitionInstance = null
   }
+}
+
+export function resetSpeechPermissionCache() {
+  microphonePermissionState = 'unknown'
+  permissionRequestPromise = null
 }

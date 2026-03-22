@@ -20,4 +20,9 @@ describe('askFromKnowledgeBase', () => {
     const result = askFromKnowledgeBase('tem garantia de lucro?')
     expect(result?.entryId).toBe('garantia_lucro')
   })
+
+  test('prioriza cadastro em vez de elevator_pitch para perguntas genericas sobre cadastro', () => {
+    const result = askFromKnowledgeBase('como funciona o cadastro?')
+    expect(result?.entryId).toBe('cadastro')
+  })
 })

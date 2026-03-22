@@ -14,9 +14,52 @@ import { getCacheKey, cleanupCache, CACHE_TTL_MS, runPeriodicMaintenance } from 
 import { ALLOWED_IDS, isInScope, extractClickContext } from '@/biblioteca/assistente/scopeValidator'
 import { createOptimizedResponse } from '@/biblioteca/assistente/responseBuilder'
 import { callLLM } from '@/biblioteca/assistente/llmAdapter'
+import { analyzeConversationContext } from '@/biblioteca/assistente/followUpContext'
+import { buildProductSupportResponse } from '@/biblioteca/assistente/supportResponses'
 
 const IP_LIMIT = 30
 const IP_WINDOW_MS = 60 * 60 * 1000
+const KB_MIN_CONFIDENCE = 0.62
+const KB_MIN_CONFIDENCE_ELEVATOR = 0.78
+
+const GENERIC_CLICK_QUESTION_RE =
+  /^(o que (e|é) isso|me explica isso|explica isso|como isso funciona|o que significa isso)$/i
+
+const ASSISTANT_TECHNICAL_RE =
+  /\b(assistente|chat|voz|microfone|mobile|celular|audio|áudio|toque|clique|contexto|click context|resposta|acao|ações|navega[cç][aã]o|cache|rate limit|circuit breaker|quota|token|api)\b/i
+
+function mentionsPlatformIdentity(question: string): boolean {
+  return /\b(dvais|davi|mentor|plataforma)\b/i.test(question)
+}
+
+function shouldBypassKnowledgeBase(args: {
+  sanitized: string
+  hasClickContext: boolean
+  detectedIntentType: string
+  shouldBypassKB: boolean
+  kbBypassReason: string | null
+}) {
+  const { sanitized, hasClickContext, detectedIntentType, shouldBypassKB, kbBypassReason } = args
+  const normalizedQuestion = sanitized.toLowerCase().replace(/[?!.,;:]/g, '').trim()
+
+  if (shouldBypassKB) {
+    return kbBypassReason || 'conversation_context'
+  }
+
+  if (hasClickContext && GENERIC_CLICK_QUESTION_RE.test(normalizedQuestion)) {
+    return 'generic_click_context'
+  }
+
+  if (detectedIntentType === 'reclamacao' || detectedIntentType === 'comparar') {
+    return `intent:${detectedIntentType}`
+  }
+
+  if (ASSISTANT_TECHNICAL_RE.test(normalizedQuestion)) {
+    return 'assistant_technical_question'
+  }
+
+  return null
+}
 
 export async function POST(req: NextRequest) {
   // 1. Abort check
@@ -77,42 +120,11 @@ export async function POST(req: NextRequest) {
     resetMetrics()
   }
 
-  // 7. Cache lookup
-  const cacheKey = getCacheKey('assistente', question)
-  const cached = await getFromCache(cacheKey)
-  if (cached && cached.expiresAt > Date.now()) {
-    incrementCacheHit()
-    logOps({ topic: 'assistente', status: 'cache_hit', latencyMs: Math.round(performance.now() - started), user }).catch(() => {})
-    return createOptimizedResponse(cached.response, true)
-  }
-  incrementCacheMiss()
+  const context =
+    contextRaw && typeof contextRaw === 'object' ? (contextRaw as Record<string, unknown>) : {}
+  const { hasClickContext, clickContextBlock, safeClickedTargetId } = extractClickContext(context)
 
-  // 8. Knowledge Base (first responder before LLM)
-  const kbReplyRaw = askFromKnowledgeBase(sanitized)
-  if (kbReplyRaw) {
-    const actions = validateActions(kbReplyRaw.actions || [], [...ALLOWED_IDS])
-    const response = {
-      entryId: kbReplyRaw.entryId,
-      responses: kbReplyRaw.responses,
-      actions,
-      ctas: kbReplyRaw.ctas,
-      mode: 'normal' as const,
-    }
-
-    cleanupCache()
-    await setInCache(cacheKey, {
-      response,
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      lastAccessed: Date.now(),
-    })
-
-    await registerSuccess(user)
-    const latency = Math.round(performance.now() - started)
-    logOps({ topic: 'assistente', status: 'kb_hit', latencyMs: latency, mode: 'normal', user }).catch(() => {})
-    return createOptimizedResponse(response, false)
-  }
-
-  // 9. Validate history (lazy — only when KB didn't answer)
+  // 6a. Validate history before scope and KB gating
   const validHistory: Array<{ role: string; content: string }> = []
   if (Array.isArray(historyRaw)) {
     const limitedHistory = historyRaw.length > 10 ? historyRaw.slice(-10) : historyRaw
@@ -127,13 +139,133 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 10. Click context extraction
-  const context =
-    contextRaw && typeof contextRaw === 'object' ? (contextRaw as Record<string, unknown>) : {}
-  const { hasClickContext, clickContextBlock } = extractClickContext(context)
+  const conversationContext = analyzeConversationContext({
+    sanitizedQuestion: sanitized,
+    validHistory,
+  })
+
+  const preDetectedIntent = detectIntent(sanitized, {
+    detectMultiple: true,
+    considerHistory: false,
+    useFuzzy: true,
+  })
+  const kbBypassReason = shouldBypassKnowledgeBase({
+    sanitized,
+    hasClickContext,
+    detectedIntentType: preDetectedIntent.type,
+    shouldBypassKB: conversationContext.shouldBypassKB,
+    kbBypassReason: conversationContext.kbBypassReason,
+  })
+  const supportResponse = buildProductSupportResponse(sanitized)
+
+  // 7. Cache lookup
+  const cacheKey = getCacheKey('assistente', question, [
+    String(context.currentPage || ''),
+    safeClickedTargetId || '',
+    hasClickContext ? 'click_context' : '',
+    conversationContext.hasUsefulHistory ? 'history_present' : 'history_empty',
+    conversationContext.topicHint ? `topic:${conversationContext.topicHint}` : '',
+    conversationContext.isEllipticalFollowUp ? 'elliptical_followup' : '',
+    conversationContext.isTechnicalMetaQuestion ? 'technical_meta' : '',
+    conversationContext.isOpenProductQuestion ? 'product_overview' : '',
+    conversationContext.kbBypassReason || '',
+    supportResponse ? `support:${supportResponse.subtype}` : '',
+  ])
+  const cached = await getFromCache(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    incrementCacheHit()
+    logOps({ topic: 'assistente', status: 'cache_hit', latencyMs: Math.round(performance.now() - started), user }).catch(() => {})
+    return createOptimizedResponse(cached.response, true)
+  }
+  incrementCacheMiss()
+
+  // 7a. Product support responses for mobile/voice issues
+  if (supportResponse) {
+    cleanupCache()
+    await setInCache(cacheKey, {
+      response: supportResponse.response,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      lastAccessed: Date.now(),
+    })
+
+    await registerSuccess(user)
+    const latency = Math.round(performance.now() - started)
+    logOps({
+      topic: 'assistente',
+      status: 'support_deterministic',
+      latencyMs: latency,
+      kbReason: supportResponse.subtype,
+      user,
+    }).catch(() => {})
+
+    return createOptimizedResponse(supportResponse.response, false)
+  }
+
+  // 8. Knowledge Base (first responder before LLM)
+  const kbReplyRaw = kbBypassReason ? null : askFromKnowledgeBase(sanitized)
+  const kbMinConfidence =
+    kbReplyRaw?.entryId === 'elevator_pitch' && !mentionsPlatformIdentity(sanitized)
+      ? KB_MIN_CONFIDENCE_ELEVATOR
+      : KB_MIN_CONFIDENCE
+
+  if (kbBypassReason) {
+    logOps({
+      topic: 'assistente',
+      status: 'kb_bypass_intent',
+      kbReason: kbBypassReason,
+      intent: preDetectedIntent.type,
+      confidence: preDetectedIntent.confidence,
+      user,
+    }).catch(() => {})
+  } else if (kbReplyRaw && (kbReplyRaw.confidence ?? 0) < kbMinConfidence) {
+    logOps({
+      topic: 'assistente',
+      status: 'kb_bypass_low_confidence',
+      kbConfidence: kbReplyRaw.confidence,
+      kbReason: kbReplyRaw.reason,
+      user,
+    }).catch(() => {})
+  }
+
+  if (kbReplyRaw && (kbReplyRaw.confidence ?? 0) >= kbMinConfidence) {
+    const actions = validateActions(kbReplyRaw.actions || [], [...ALLOWED_IDS])
+    const response = {
+      entryId: kbReplyRaw.entryId,
+      responses: kbReplyRaw.responses,
+      actions,
+      ctas: kbReplyRaw.ctas,
+      confidence: kbReplyRaw.confidence,
+      mode: 'normal' as const,
+    }
+
+    cleanupCache()
+    await setInCache(cacheKey, {
+      response,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      lastAccessed: Date.now(),
+    })
+
+    await registerSuccess(user)
+    const latency = Math.round(performance.now() - started)
+    logOps({
+      topic: 'assistente',
+      status: 'kb_hit',
+      latencyMs: latency,
+      mode: 'normal',
+      kbConfidence: kbReplyRaw.confidence,
+      kbReason: kbReplyRaw.reason,
+      user,
+    }).catch(() => {})
+    return createOptimizedResponse(response, false)
+  }
 
   // 11. Scope validation
-  if (!isInScope(sanitized, hasClickContext)) {
+  if (
+    !isInScope(sanitized, hasClickContext, {
+      allowContextualFollowUp: conversationContext.shouldTreatAsInScope,
+      topicHint: conversationContext.topicHint,
+    })
+  ) {
     logOps({ topic: 'assistente', status: 'out_of_scope', user }).catch(() => {})
     return NextResponse.json(
       { error: 'Fora de escopo. Pergunte sobre cadastro, análise, proteção, aprendizado ou resultados.' },
@@ -148,8 +280,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 13. Intent detection
-  const streamMode = req.nextUrl.searchParams.get('stream') === 'true'
-  const detectedIntent = detectIntent(sanitized, {
+  const detectedIntent = detectIntent(conversationContext.effectiveQuestion, {
     detectMultiple: true,
     considerHistory: true,
     useFuzzy: true,
@@ -170,10 +301,12 @@ export async function POST(req: NextRequest) {
     const llmResult = await callLLM(
       {
         sanitizedQuestion: sanitized,
+        effectiveQuestion: conversationContext.effectiveQuestion,
         validHistory,
         clickContextBlock,
+        conversationContextBlock: conversationContext.conversationContextBlock,
         detectedIntent,
-        streamMode,
+        streamMode: false,
         allowedIds: ALLOWED_IDS,
       },
       req.signal
@@ -181,15 +314,32 @@ export async function POST(req: NextRequest) {
 
     if (llmResult.type === 'error') {
       await registerFailure(user)
-      logOps({ topic: 'assistente', status: llmResult.message, user }).catch(() => {})
+      logOps({
+        topic: 'assistente',
+        status: 'llm_http_error',
+        error: llmResult.message,
+        errorType: llmResult.errorType,
+        provider: llmResult.provider || undefined,
+        model: llmResult.model || undefined,
+        httpStatus: llmResult.httpStatus ?? undefined,
+        user,
+      }).catch(() => {})
       return NextResponse.json(
-        { error: llmResult.message === 'Assistente temporariamente indisponível.' ? llmResult.message : 'Erro ao processar pergunta.' },
+        {
+          error: llmResult.message,
+          errorType: llmResult.errorType,
+          provider: llmResult.provider,
+        },
         { status: llmResult.status }
       )
     }
 
-    if (llmResult.type === 'stream') {
-      return llmResult.streamResponse
+    if (llmResult.type !== 'response') {
+      await registerFailure(user)
+      return NextResponse.json(
+        { error: 'Modo de streaming não está habilitado neste cliente.' },
+        { status: 501 }
+      )
     }
 
     // 15. Cache result + register success
@@ -203,7 +353,15 @@ export async function POST(req: NextRequest) {
 
     await registerSuccess(user)
     const latency = Math.round(performance.now() - started)
-    logOps({ topic: 'assistente', status: 'ok', latencyMs: latency, mode: response.mode, user }).catch(() => {})
+    logOps({
+      topic: 'assistente',
+      status: 'llm_hit',
+      latencyMs: latency,
+      mode: response.mode,
+      provider: llmResult.provider,
+      model: llmResult.model,
+      user,
+    }).catch(() => {})
 
     // 16. Return optimized response
     return createOptimizedResponse(response, false)
