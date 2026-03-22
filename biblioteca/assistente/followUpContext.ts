@@ -117,10 +117,18 @@ export function analyzeConversationContext(args: {
   let effectiveQuestion = sanitizedQuestion
   let kbBypassReason: string | null = null
 
+  // Detecta se o usuário está pedindo explicação genérica (não sobre cadastro)
+  const isGenericExplanationRequest = /^(ok|sim|quero|quero saber|me (explica|fala|conta)|como (isso|funciona|é)|entendi|conta mais|fala mais)/i.test(normalizedQuestion) && !/cadastr|registr|criar conta|comecar agora/i.test(normalizedQuestion)
+
   if ((isEllipticalFollowUp || continuationQuestion) && hasUsefulHistory && historyTopicHint && !questionLooksIndependent) {
     kbBypassReason = 'contextual_follow_up'
-    effectiveQuestion = `Pergunta atual: "${sanitizedQuestion}". Continue a conversa a partir do último tópico (${historyTopicHint.replace('_', ' ')}). Última pergunta do usuário: "${historyQuestion || 'não informada'}". Última resposta do assistente: "${historyAnswer || 'não informada'}". Responda sem recomeçar do zero e avance a explicação com um próximo passo útil quando couber.`
-    conversationContextBlock += `\nCONTEXTO DE CONVERSA:\n- último tópico forte: ${historyTopicHint}\n- última pergunta: ${historyQuestion || 'não informada'}\n- última resposta: ${historyAnswer || 'não informada'}\n- histórico resumido: ${contextSignals?.conversationSummary || historySummary || 'sem resumo'}\n- trate a nova pergunta como continuação natural, sem repetir a abertura da resposta anterior.\n`
+    // Se o usuário pede explicação genérica e o último tópico era cadastro/login,
+    // ele provavelmente quer saber sobre a plataforma, não sobre o cadastro em si
+    const effectiveTopic = isGenericExplanationRequest && (historyTopicHint === 'cadastro' || historyTopicHint === 'login')
+      ? 'produto'
+      : historyTopicHint
+    effectiveQuestion = `Pergunta atual: "${sanitizedQuestion}". Continue a conversa a partir do último tópico (${effectiveTopic.replace('_', ' ')}). Última pergunta do usuário: "${historyQuestion || 'não informada'}". Última resposta do assistente: "${historyAnswer || 'não informada'}". IMPORTANTE: Se a última resposta ofereceu opções e o usuário respondeu de forma genérica ("como funciona", "quero saber", "ok"), responda sobre a plataforma em geral, NÃO sobre cadastro. Só fale de cadastro se o usuário pedir explicitamente. Responda sem recomeçar do zero e avance a explicação com um próximo passo útil quando couber.`
+    conversationContextBlock += `\nCONTEXTO DE CONVERSA:\n- último tópico forte: ${effectiveTopic}\n- última pergunta: ${historyQuestion || 'não informada'}\n- última resposta: ${historyAnswer || 'não informada'}\n- histórico resumido: ${contextSignals?.conversationSummary || historySummary || 'sem resumo'}\n- trate a nova pergunta como continuação natural, sem repetir a abertura da resposta anterior.\n- ATENÇÃO: se o usuário responder de forma genérica a uma resposta com múltiplas opções, interprete como interesse na EXPLICAÇÃO, não no cadastro.\n`
 
     if (flowHint === 'cadastro') {
       conversationContextBlock += `\nCONTINUAÇÃO SEGURA DE CADASTRO:\n- trate como continuação de um fluxo de interface, não como backend confirmado.\n- não diga que a conta já foi criada nem que o usuário ganhou acesso privado automaticamente.\n- avance para o próximo passo plausível desta demo: concluir a etapa visual, seguir para login ou explorar áreas públicas guiadas.\n`

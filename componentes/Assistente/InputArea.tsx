@@ -33,7 +33,7 @@ function runtimeCopy(runtimeState: VoiceRuntimeState, continuousMode: boolean) {
   if (runtimeState === 'thinking') return 'Consultando a IA'
   if (runtimeState === 'speaking') return 'Reproduzindo resposta'
   if (runtimeState === 'error') return 'Falha temporária'
-  return continuousMode ? 'Live pronto' : 'Pronto para conversar'
+  return continuousMode ? 'Conversa por voz ativa' : 'Pronto para conversar'
 }
 
 export function InputArea({
@@ -127,7 +127,7 @@ export function InputArea({
                 onClick={toggleListening}
                 disabled={isThinking}
               >
-                {isListening ? 'Parar microfone' : isCoarsePointer ? 'Tocar para falar' : 'Microfone'}
+                {isListening ? 'Parar conversa por voz' : isCoarsePointer ? 'Iniciar conversa por voz' : 'Conversa por voz'}
               </button>
             )}
 

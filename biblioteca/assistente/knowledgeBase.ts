@@ -661,9 +661,9 @@ export const ENTRIES: KBEntry[] = [
       { term: 'usar a voz', weight: 4 },
     ],
     responses: [
-      'Para falar comigo por voz: clique em "Falar com Davi" e depois no botão do microfone. Fale sua pergunta e eu respondo por voz e texto. Na plataforma real, a IA do DVAi$ vai funcionar da mesma forma.',
-      'O assistente de voz funciona em 2 toques: abra o chat e aperte o microfone. Você fala, eu processo e respondo. Essa é uma demonstração de como a IA do DVAi$ vai interagir com você.',
-      'Quer testar a voz? Abra o chat clicando em "Falar com Davi", depois toque no microfone. Essa interação por voz é uma amostra do que o DVAi$ vai oferecer na plataforma completa.',
+      'Para conversar por voz: clique em "Falar com Davi" e depois em "Conversa por voz". O microfone abre e você fala naturalmente — eu respondo por voz e texto, e o microfone reabre sozinho para a próxima pergunta. É uma conversa contínua, sem precisar clicar de novo. Na plataforma real, a IA do DVAi$ vai funcionar da mesma forma.',
+      'Quer testar a voz? Abra o chat e toque em "Conversa por voz". Fale sua pergunta, eu respondo, e o microfone volta a ouvir automaticamente. Para parar, é só tocar de novo. Essa é uma demonstração de como o DVAi$ vai interagir com você.',
+      'A conversa por voz funciona como um bate-papo natural: você ativa o microfone uma vez e pode ir perguntando — eu respondo e continuo ouvindo. Para encerrar a voz, toque em "Parar conversa por voz". Essa interação é uma amostra do que a plataforma completa vai oferecer.',
     ],
   },
   {

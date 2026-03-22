@@ -195,7 +195,7 @@ export function useLiveVoice({
     startContinuousListeningRef.current = startContinuousListening
   }, [startContinuousListening])
 
-  const toggleListening = useCallback(async () => {
+  const toggleListening = useCallback(() => {
     if (isListening) {
       stopListening()
       setContinuousMode(false)
@@ -207,50 +207,11 @@ export function useLiveVoice({
       return
     }
 
-    const cleanup = await startSpeechRecognition(
-      {
-        onStart: () => {
-          submittedInSessionRef.current = false
-          setIsListening(true)
-          setCaption('Ouvindo...')
-        },
-        onResult: result => {
-          setQuestion(result.text)
-          if (shouldAutoSubmitManualTranscript(result)) {
-            submittedInSessionRef.current = true
-            setIsListening(false)
-            setCaption('Captura finalizada. Enviando pergunta...')
-            if (manualSubmitTimeoutRef.current !== null) {
-              clearTimeout(manualSubmitTimeoutRef.current)
-            }
-            manualSubmitTimeoutRef.current = window.setTimeout(() => {
-              const speechAvail = hasSTT()
-              const ttsAvail = hasTTS()
-              handleAskRef.current?.(speechAvail, ttsAvail)
-              manualSubmitTimeoutRef.current = null
-            }, 250)
-          }
-        },
-        onError: error => {
-          setIsListening(false)
-          setCaption(voiceErrorMessage(error))
-          speechCleanupRef.current?.()
-          speechCleanupRef.current = null
-        },
-        onEnd: reason => {
-          setIsListening(false)
-          if (reason !== 'manual_stop') {
-            speechCleanupRef.current = null
-            return
-          }
-          speechCleanupRef.current = null
-        },
-      },
-      { silenceTimeoutMs: 10000 }
-    )
-
-    speechCleanupRef.current = cleanup
-  }, [isListening, setCaption, setContinuousMode, setQuestion, stopListening])
+    // Ativa modo contínuo: mic reabre automaticamente após cada resposta
+    setContinuousMode(true)
+    continuousModeRef.current = true
+    startContinuousListening()
+  }, [isListening, stopListening, setContinuousMode, setCaption, startContinuousListening, continuousModeRef])
 
   const cleanupVoice = useCallback(() => {
     stopListening()
