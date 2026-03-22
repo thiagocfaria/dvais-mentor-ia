@@ -11,13 +11,13 @@ export type TopicHint =
 export type AuthFlowHint = 'cadastro' | 'login' | null
 
 const EXPLICIT_TOPIC_SHIFT_RE =
-  /\b(mudando de assunto|outro assunto|outra coisa|agora sobre|quero falar de|vamos falar de)\b/i
+  /\b(mudando de assunto|outro assunto|outra coisa|agora sobre|quero falar de|vamos falar de|deixa eu perguntar outra|te pergunto outra|muda de assunto|falando de outra coisa)\b/i
 
 const PRACTICAL_OPEN_RE =
-  /\b(como isso funciona na pratica|como funciona na pratica|como isso funciona|o que acontece depois)\b/i
+  /\b(como isso funciona na pratica|como funciona na pratica|como isso funciona|o que acontece depois|me mostra na pratica|me mostra um exemplo|exemplo real|como que e|como seria)\b/i
 
 const CONTINUATION_RE =
-  /^(e\s+depois(\s+disso|\s+do\s+cadastro)?|e\s+agora|e\s+como\s+isso\s+funciona|e\s+no\s+celular|e\s+nisso(\s+ai)?|qual\s+o\s+proximo\s+passo|o\s+que\s+eu\s+faco\s+depois|me\s+explica\s+melhor|me\s+explica\s+mais|explica\s+melhor|e\s+se\s+eu\s+errar\s+meus\s+dados|e\s+depois\s+que\s+eu\s+confirmar\s+o\s+email|e\s+se\s+eu\s+esquecer\s+a\s+senha|o\s+que\s+eu\s+faco\s+se\s+nao\s+entrar|quero\s+saber(\s+como\s+funciona|\s+mais|\s+sobre)?|como\s+funciona\s+isso|me\s+(conta|fala|explica)\s+mais|conta\s+mais|fala\s+mais|sim[,.]?\s*(quero|pode|fala|conta|explica)|ok[,.]?\s*(quero|pode|fala|conta|me)|pode\s+ser|quero\s+entender|me\s+explica|quero\s+conhecer|como\s+e\s+isso|como\s+isso\s+funciona|e\s+a\s+analise|e\s+a\s+protecao|e\s+o\s+aprendizado|e\s+os\s+alertas)$/i
+  /^(e\s+depois(\s+disso|\s+do\s+cadastro)?|e\s+agora|e\s+como\s+isso\s+funciona|e\s+no\s+celular|e\s+nisso(\s+ai)?|qual\s+o\s+proximo\s+passo|o\s+que\s+eu\s+faco\s+depois|me\s+explica\s+melhor|me\s+explica\s+mais|explica\s+melhor|e\s+se\s+eu\s+errar\s+meus\s+dados|e\s+depois\s+que\s+eu\s+confirmar\s+o\s+email|e\s+se\s+eu\s+esquecer\s+a\s+senha|o\s+que\s+eu\s+faco\s+se\s+nao\s+entrar|quero\s+saber(\s+como\s+funciona|\s+mais|\s+sobre)?|como\s+funciona\s+isso|me\s+(conta|fala|explica)\s+mais|conta\s+mais|fala\s+mais|sim[,.]?\s*(quero|pode|fala|conta|explica)|ok[,.]?\s*(quero|pode|fala|conta|me)|pode\s+ser|quero\s+entender|me\s+explica|quero\s+conhecer|como\s+e\s+isso|como\s+isso\s+funciona|e\s+a\s+analise|e\s+a\s+protecao|e\s+o\s+aprendizado|e\s+os\s+alertas|e\s+o\s+suporte|e\s+a\s+seguranca|e\s+o\s+guia|e\s+quanto\s+a\b.*|e\s+sobre\s+\b.*|e\s+a\s+voz|e\s+o\s+cadastro|e\s+o\s+login|entendi|legal|interessante|bacana|show|top|massa)$/i
 
 export function normalizeConversationText(value: string): string {
   return value

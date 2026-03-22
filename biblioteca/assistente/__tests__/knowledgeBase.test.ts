@@ -190,3 +190,82 @@ describe('KB correções de matching (cenários que falhavam)', () => {
     expect(allResponses).toMatch(/gratuit/i)
   })
 })
+
+describe('KB novas entradas v2', () => {
+  test('retorna custodia_dinheiro para "preciso depositar dinheiro"', () => {
+    const result = askFromKnowledgeBase('preciso depositar dinheiro em vocês?')
+    expect(result?.entryId).toBe('custodia_dinheiro')
+  })
+
+  test('custodia_dinheiro deixa claro que não guarda dinheiro', () => {
+    const result = askFromKnowledgeBase('vocês guardam meu dinheiro?')
+    expect(result?.entryId).toBe('custodia_dinheiro')
+    const allResponses = result!.responses.join(' ')
+    expect(allResponses).toMatch(/não.*guarda|não.*custódia|não.*depósito/i)
+  })
+
+  test('retorna perfis_comparacao para "diferença entre os perfis"', () => {
+    const result = askFromKnowledgeBase('qual a diferença entre os perfis?')
+    expect(result?.entryId).toBe('perfis_comparacao')
+  })
+
+  test('retorna ativos_mercados para "funciona com cripto"', () => {
+    const result = askFromKnowledgeBase('funciona com cripto?')
+    expect(result?.entryId).toBe('ativos_mercados')
+  })
+
+  test('retorna ativos_mercados para "quais mercados"', () => {
+    const result = askFromKnowledgeBase('quais mercados vocês cobrem?')
+    expect(result?.entryId).toBe('ativos_mercados')
+  })
+
+  test('retorna corretora_integracao para "funciona com qualquer corretora"', () => {
+    const result = askFromKnowledgeBase('funciona com qualquer corretora?')
+    expect(result?.entryId).toBe('corretora_integracao')
+  })
+
+  test('retorna corretora_integracao para "preciso trocar de corretora"', () => {
+    const result = askFromKnowledgeBase('preciso trocar de corretora?')
+    expect(result?.entryId).toBe('corretora_integracao')
+  })
+
+  test('retorna compatibilidade_navegador para "funciona no celular"', () => {
+    const result = askFromKnowledgeBase('funciona no celular?')
+    expect(result?.entryId).toBe('compatibilidade_navegador')
+  })
+
+  test('retorna compatibilidade_navegador para "tem app"', () => {
+    const result = askFromKnowledgeBase('tem aplicativo pra baixar?')
+    expect(result?.entryId).toBe('compatibilidade_navegador')
+  })
+
+  test('retorna tempo_aprendizado para "quanto tempo leva"', () => {
+    const result = askFromKnowledgeBase('quanto tempo leva pra aprender?')
+    expect(result?.entryId).toBe('tempo_aprendizado')
+  })
+
+  test('retorna despedida para "obrigado"', () => {
+    const result = askFromKnowledgeBase('obrigado!')
+    expect(result?.entryId).toBe('despedida')
+  })
+
+  test('retorna despedida para "tchau"', () => {
+    const result = askFromKnowledgeBase('tchau, até mais!')
+    expect(result?.entryId).toBe('despedida')
+  })
+
+  test('é pago retorna precos', () => {
+    const result = askFromKnowledgeBase('é pago? preciso pagar?')
+    expect(result?.entryId).toBe('precos')
+  })
+
+  test('lgpd retorna seguranca_dados', () => {
+    const result = askFromKnowledgeBase('vocês cumprem a LGPD?')
+    expect(result?.entryId).toBe('seguranca_dados')
+  })
+
+  test('minhas informações seguras retorna seguranca_dados', () => {
+    const result = askFromKnowledgeBase('minhas informações pessoais estão seguras?')
+    expect(result?.entryId).toBe('seguranca_dados')
+  })
+})

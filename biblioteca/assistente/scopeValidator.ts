@@ -42,16 +42,33 @@ export const SCOPE_KEYWORDS = [
   // Suporte e ajuda
   'suporte', 'ajuda', 'tutorial', 'contato', 'whatsapp',
   // Perfis
-  'iniciante', 'aventureiro', 'analista',
+  'iniciante', 'aventureiro', 'analista', 'perfil',
   // Assistente e voz
   'assistente', 'chat', 'voz', 'celular', 'mobile', 'microfone', 'áudio', 'audio', 'toque', 'clique',
   // Financeiro e risco
   'dinheiro', 'lucro', 'ganhar', 'perder', 'risco', 'capital', 'despesa', 'receita',
   'alerta', 'alertas', 'disciplina', 'checklist',
   // Confiança e regulação
-  'consultoria', 'regulado', 'confiável', 'confiar', 'dados', 'privacidade',
+  'consultoria', 'regulado', 'confiável', 'confiar', 'dados', 'privacidade', 'lgpd',
   // Funcionalidades específicas
   'guia financeiro', 'relatório', 'personalização', 'adapta',
+  // Mercados e ativos
+  'cripto', 'criptomoeda', 'bitcoin', 'ethereum', 'ações', 'forex', 'commodities',
+  'bolsa', 'b3', 'renda variável', 'renda fixa', 'ativo', 'ativos',
+  // Corretoras e integração
+  'binance', 'xp', 'nubank', 'clear', 'rico', 'inter',
+  'integração', 'conectar', 'sincronizar',
+  // Dispositivos e compatibilidade
+  'navegador', 'chrome', 'safari', 'firefox', 'android', 'iphone', 'ios',
+  'desktop', 'aplicativo', 'app', 'instalar', 'baixar',
+  // Custódia e dinheiro
+  'custódia', 'depositar', 'depósito', 'transferir', 'pix', 'boleto',
+  // Tempo e curva de aprendizado
+  'demora', 'difícil', 'complicado', 'tempo', 'rápido',
+  // Comparação e avaliação
+  'diferença', 'melhor', 'versus', 'comparar', 'concorrente', 'vantagem',
+  // Rentabilidade
+  'rentabilidade', 'retorno', 'rendimento',
   // Técnico (manter para perguntas meta)
   'oferece', 'oferecem', 'ia', 'kb', 'base de conhecimento', 'llm',
   'contexto', 'acao', 'ações', 'resposta', 'token', 'quota', 'cache', 'rate limit', 'circuit breaker',
