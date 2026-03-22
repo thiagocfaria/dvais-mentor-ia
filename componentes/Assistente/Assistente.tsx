@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { speakText } from '@/biblioteca/assistente/textToSpeech'
 import { ChatMessage } from './ChatMessage'
 import { useAssistantSession } from './hooks/useAssistantSession'
 import { useClickContext } from './hooks/useClickContext'
@@ -15,25 +14,24 @@ import { useContinuousRestart } from './hooks/useContinuousRestart'
 import { AssistantHeader } from './AssistantHeader'
 import { ChatArea } from './ChatArea'
 import { InputArea } from './InputArea'
-import { ConsentModal } from './ConsentModal'
-import type { GuidedStep, VoiceRuntimeState } from './types'
+import type { VoiceRuntimeState } from './types'
 import { CLICK_CONTEXT_TTL_MS } from './types'
-import { hasSTT, hasTTS, isCoarsePointerDevice, normalizeTtsText } from './utils'
+import { hasSTT, hasTTS, isCoarsePointerDevice } from './utils'
 
 type AssistenteProps = {
   onMobileSelectionModeChange?: (active: boolean) => void
   cancelSelectionToken?: number
+  onClose?: () => void
 }
 
 export default function Assistente({
   onMobileSelectionModeChange,
   cancelSelectionToken = 0,
+  onClose,
 }: AssistenteProps) {
   const [isActive, setIsActive] = useState(false)
-  const [showConsent, setShowConsent] = useState(false)
   const [useVoice, setUseVoice] = useState(false)
   const [caption, setCaption] = useState('')
-  const [currentIndex, setCurrentIndex] = useState(0)
   const [question, setQuestion] = useState('')
   const [continuousMode, setContinuousMode] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
@@ -72,8 +70,8 @@ export default function Assistente({
   }, [shouldUnlockSelectionSurface])
 
   const liveHintFallback = selectionMode
-    ? 'Seleção ativa. Toque em um item da página para explicar aquela parte.'
-    : 'Escreva sua pergunta ou use "Selecionar item" para capturar contexto da página.'
+    ? 'Toque em um item da página.'
+    : 'Pronto para conversar.'
 
   const sessionIdRef = useAssistantSession()
   const visibleElements = useVisibleElements(isActive)
@@ -220,107 +218,16 @@ export default function Assistente({
     }
   }, [cleanupHighlight, cleanupNavigation, cleanupVoice, abortControllerRef, isRestartingRef])
 
-  const steps: GuidedStep[] = useMemo(
-    () => [
-      {
-        id: 'hero',
-        title: 'Página inicial',
-        description:
-          'Aqui fica a visão geral do produto, com proposta, métricas e entrada para cadastro.',
-        targetId: 'hero-content',
-      },
-      {
-        id: 'features',
-        title: 'Capacidades do assistente',
-        description:
-          'Esta seção resume voz, clique contextual, validação de ações e a camada de resiliência.',
-        targetId: 'features-section',
-      },
-      {
-        id: 'stats',
-        title: 'Indicadores do projeto',
-        description:
-          'Aqui você vê a parte de stack, testes e foco técnico desta vitrine.',
-        targetId: 'stats-section',
-      },
-    ],
-    []
-  )
-
-  const runStep = useCallback(
-    (index: number) => {
-      const step = steps[index]
-      if (!step) return
-      setCurrentIndex(index)
-      const msg = step.description || step.title
-      setCaption(msg)
-      setHintMessage(msg)
-      if (useVoice && hasTTS()) {
-        speakText(normalizeTtsText(msg), { kind: 'guide' }).catch(() => {})
-      }
-      highlight(step.targetId)
-    },
-    [useVoice, highlight, steps, setHintMessage]
-  )
-
-  const activate = useCallback(
-    (withVoice: boolean, continuous: boolean = false) => {
-      const voiceEnabled = withVoice && speechAvailable
-      const continuousAllowed = continuous && voiceEnabled && !isCoarsePointer
-
-      setUseVoice(voiceEnabled)
-      setIsActive(true)
-      setShowConsent(false)
-      setCurrentIndex(0)
-      setSelectionMode(false)
-      setContinuousMode(continuousAllowed)
-
-      const introMessage = continuousAllowed
-        ? 'Assistente ativado. Você pode falar naturalmente ou selecionar uma parte da página para eu explicar.'
-        : 'Assistente ativado. Use o chat, o microfone manual ou o botão "Selecionar item" para capturar contexto.'
-
-      setHintMessage(introMessage)
-      setCaption(introMessage)
-      setConversationHistory(prev =>
-        [...prev, { question: '', answer: introMessage, timestamp: Date.now() }].slice(-10)
-      )
-
-      const startLive = () => {
-        if (startLiveTimeoutRef.current !== null) {
-          clearTimeout(startLiveTimeoutRef.current)
-        }
-        startLiveTimeoutRef.current = window.setTimeout(() => {
-          if (startContinuousListeningRef.current) {
-            startContinuousListeningRef.current()
-          }
-          startLiveTimeoutRef.current = null
-        }, 500)
-      }
-
-      if (continuousAllowed) {
-        if (voiceEnabled && ttsAvailable) {
-          setIsTTSSpeaking(true)
-          speakText(normalizeTtsText(introMessage), { kind: 'intro' })
-            .catch(() => {})
-            .finally(() => {
-              setIsTTSSpeaking(false)
-              startLive()
-            })
-        } else {
-          startLive()
-        }
-      }
-    },
-    [
-      isCoarsePointer,
-      setConversationHistory,
-      setHintMessage,
-      setIsTTSSpeaking,
-      speechAvailable,
-      startContinuousListeningRef,
-      ttsAvailable,
-    ]
-  )
+  // Auto-ativação no mount com defaults por dispositivo (cautela #3)
+  useEffect(() => {
+    if (isActive) return
+    const voiceEnabled = speechAvailable
+    setUseVoice(voiceEnabled)
+    setContinuousMode(false)
+    setSelectionMode(false)
+    setIsActive(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const deactivate = useCallback(() => {
     cleanupHighlight()
@@ -344,6 +251,7 @@ export default function Assistente({
     setSelectionMode(false)
     setIsTTSSpeaking(false)
     isRestartingRef.current = false
+    onClose?.()
   }, [
     stopListening,
     cleanupHighlight,
@@ -356,6 +264,7 @@ export default function Assistente({
     setIsListening,
     setIsTTSSpeaking,
     isRestartingRef,
+    onClose,
   ])
 
   const toggleSelectionMode = useCallback(() => {
@@ -395,8 +304,6 @@ export default function Assistente({
     [conversationHistory]
   )
 
-  const liveHintMessage = hintMessage || caption || liveHintFallback
-
   return (
     <div
       ref={assistantRootRef}
@@ -404,33 +311,9 @@ export default function Assistente({
         shouldUnlockSelectionSurface ? 'opacity-70' : ''
       }`}
     >
-      {!isActive ? (
-        <div className="space-y-4 p-5">
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-500/10 via-blue-500/10 to-transparent p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200">
-              Assistente contextual
-            </p>
-            <h3 className="mt-2 text-lg font-semibold text-white">
-              Chat por texto, voz opcional e contexto por toque.
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-slate-200">
-              A experiência recomendada no celular é texto + toque. Quando o navegador suportar bem a captura, você pode usar voz manual ou conversa contínua no desktop.
-            </p>
-          </div>
-
-          <button
-            className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-950/30 transition-colors hover:from-cyan-400 hover:to-blue-500"
-            onClick={() => setShowConsent(true)}
-          >
-            Ativar assistente
-          </button>
-
-          <p className="text-xs text-slate-400">
-            Funciona em texto em qualquer dispositivo compatível com o site. Voz depende do navegador e das permissões.
-          </p>
-        </div>
-      ) : (
-        <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col">
+        {isActive && (
+          <>
           <AssistantHeader
             runtimeState={runtimeState}
             voiceIssue={voiceIssue}
@@ -438,7 +321,6 @@ export default function Assistente({
             selectionMode={selectionMode}
             speechAvailable={speechAvailable}
             isCoarsePointer={isCoarsePointer}
-            onToggleSelection={toggleSelectionMode}
             onDeactivate={deactivate}
           />
           <ChatArea
@@ -466,13 +348,9 @@ export default function Assistente({
             mode={mode}
             runtimeState={runtimeState}
             question={question}
-            liveHintMessage={liveHintMessage}
-            steps={steps}
-            currentIndex={currentIndex}
             setQuestion={setQuestion}
             handleAsk={handleAsk}
             toggleListening={toggleListening}
-            runStep={runStep}
             handleExportTranscript={handleExportTranscript}
             handleClearTranscript={handleClearTranscript}
             selectionMode={selectionMode}
@@ -483,17 +361,9 @@ export default function Assistente({
             voiceIssue={voiceIssue}
             isCoarsePointer={isCoarsePointer}
           />
-        </div>
-      )}
-
-      {showConsent && (
-        <ConsentModal
-          speechAvailable={speechAvailable}
-          isCoarsePointer={isCoarsePointer}
-          onActivate={activate}
-          onCancel={() => setShowConsent(false)}
-        />
-      )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

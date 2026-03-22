@@ -90,6 +90,9 @@ function mapAssistantError(data: Record<string, unknown>): string {
   if (errorType === 'model_not_found') {
     return 'O modelo configurado não está disponível neste provider.'
   }
+  if (errorType === 'missing_api_key') {
+    return 'O assistente de IA não está configurado neste ambiente. Respostas cobertas pela base de conhecimento continuam funcionando.'
+  }
 
   return ''
 }

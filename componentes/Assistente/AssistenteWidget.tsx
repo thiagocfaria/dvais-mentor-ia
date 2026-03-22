@@ -63,24 +63,11 @@ export default function AssistenteWidget() {
               : 'pointer-events-auto opacity-100'
           }`}
         >
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <div>
-              <p className="text-xs uppercase text-cyan-200 font-semibold">Davi ao vivo</p>
-              <p className="text-[11px] text-gray-300">Texto, toque contextual e voz opcional</p>
-            </div>
-            <button
-              className="rounded-lg bg-gray-800 px-2 py-1 text-[11px] text-white hover:bg-gray-700 transition-colors"
-              onClick={() => setOpen(false)}
-            >
-              Fechar
-            </button>
-          </div>
-          <div className="p-3">
-            <Assistente
-              onMobileSelectionModeChange={setMobileSelectionMode}
-              cancelSelectionToken={cancelSelectionToken}
-            />
-          </div>
+          <Assistente
+            onMobileSelectionModeChange={setMobileSelectionMode}
+            cancelSelectionToken={cancelSelectionToken}
+            onClose={() => setOpen(false)}
+          />
         </div>
       )}
 

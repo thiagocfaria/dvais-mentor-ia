@@ -41,15 +41,8 @@ export function ChatArea({
     <div className="flex-1 overflow-y-auto bg-gradient-to-b from-slate-950/10 to-slate-950/40 p-4" style={{ minHeight: '320px' }}>
       <div className="space-y-3">
         {!hasMessages && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-cyan-950/30">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">
-              Como usar
-            </p>
-            <p className="mt-2 text-sm leading-6 text-slate-100">
-              {selectionMode
-                ? 'Toque em um item da página para capturar o contexto e depois faça sua pergunta.'
-                : caption || hintMessage || liveHintFallback}
-            </p>
+          <div className="flex h-full items-center justify-center p-8">
+            <p className="text-sm text-slate-400">Pergunte algo sobre o produto.</p>
           </div>
         )}
 

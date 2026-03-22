@@ -19,26 +19,7 @@ export function useConversationHistory(args: {
 
   const [conversationHistory, setConversationHistory] = useState<TranscriptEntry[]>([])
 
-  // Carregar do sessionStorage na montagem
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const saved = sessionStorage.getItem('assistente_conversation')
-    if (saved) {
-      try {
-        const history = JSON.parse(saved)
-        const recent = history.slice(-10)
-        setConversationHistory(recent)
-      } catch {
-        // Ignorar erro de parse
-      }
-    }
-  }, [])
-
-  // Salvar quando mudar
-  useEffect(() => {
-    if (typeof window === 'undefined' || conversationHistory.length === 0) return
-    sessionStorage.setItem('assistente_conversation', JSON.stringify(conversationHistory))
-  }, [conversationHistory])
+  // Histórico mantido apenas em estado React (page-scoped, sem persistência)
 
   const buildTranscript = useCallback(() => {
     return formatTranscript(conversationHistory, sessionIdRef.current, currentPage)

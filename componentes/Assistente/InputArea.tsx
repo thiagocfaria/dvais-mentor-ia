@@ -1,6 +1,6 @@
 'use client'
 
-import type { GuidedStep, AssistantMode, VoiceIssue, VoiceRuntimeState } from './types'
+import type { AssistantMode, VoiceIssue, VoiceRuntimeState } from './types'
 
 export type InputAreaProps = {
   enableTranscriptDebug: boolean
@@ -14,13 +14,9 @@ export type InputAreaProps = {
   mode: AssistantMode
   runtimeState: VoiceRuntimeState
   question: string
-  liveHintMessage: string
-  steps: GuidedStep[]
-  currentIndex: number
   setQuestion: (q: string) => void
   handleAsk: (speechAvailable: boolean, ttsAvailable: boolean) => void
   toggleListening: () => void
-  runStep: (index: number) => void
   handleExportTranscript: () => void
   handleClearTranscript: () => void
   selectionMode: boolean
@@ -52,13 +48,9 @@ export function InputArea({
   mode,
   runtimeState,
   question,
-  liveHintMessage,
-  steps,
-  currentIndex,
   setQuestion,
   handleAsk,
   toggleListening,
-  runStep,
   handleExportTranscript,
   handleClearTranscript,
   selectionMode,
@@ -97,10 +89,6 @@ export function InputArea({
         )}
       </div>
 
-      <div className="mb-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-slate-200">
-        {liveHintMessage}
-      </div>
-
       {diagnosticMessage && (
         <div className="mb-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-3 text-xs leading-5 text-amber-100">
           {diagnosticMessage}
@@ -111,13 +99,7 @@ export function InputArea({
         <div className="flex-1">
           <textarea
             className="min-h-[96px] w-full resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-cyan-400/40"
-            placeholder={
-              selectionMode
-                ? 'Toque em um item da página e depois descreva o que quer saber.'
-                : isListening
-                  ? 'Ouvindo...'
-                  : 'Escreva sua pergunta ou selecione um item da página.'
-            }
+            placeholder={isListening ? 'Ouvindo...' : 'Pergunte algo sobre o produto...'}
             value={question}
             onChange={e => setQuestion(e.target.value)}
             maxLength={320}
@@ -159,13 +141,6 @@ export function InputArea({
               </button>
             )}
 
-            <button
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10 transition-colors"
-              onClick={() => runStep(Math.min(currentIndex + 1, steps.length - 1))}
-              disabled={currentIndex >= steps.length - 1}
-            >
-              Guia rápido
-            </button>
           </div>
         </div>
 

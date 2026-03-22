@@ -221,6 +221,9 @@ export async function callLLM(
   const openRouterKey = process.env.OPENROUTER_API_KEY
 
   if (!groqKey && !openRouterKey) {
+    console.warn(
+      '[llmAdapter] Nenhuma chave LLM configurada (GROQ_API_KEY / OPENROUTER_API_KEY). Respostas IA retornarão 503.'
+    )
     updateLLMHealth({
       configured: false,
       provider: null,

@@ -64,7 +64,13 @@ export async function GET() {
       }
     }
 
-    const status = blockedCount > 10 ? 'degraded' : 'ok'
+    const llmConfigured = !!(process.env.GROQ_API_KEY || process.env.OPENROUTER_API_KEY)
+    const llmStatus: 'ok' | 'degraded' | 'unconfigured' = !llmConfigured
+      ? 'unconfigured'
+      : llmHealthState?.lastKnownErrorType
+        ? 'degraded'
+        : 'ok'
+    const status = !llmConfigured ? 'degraded' : blockedCount > 10 ? 'degraded' : 'ok'
 
     return NextResponse.json({
       status,
@@ -84,7 +90,8 @@ export async function GET() {
       },
       kbVersion: KB_VERSION,
       llm: {
-        configured: !!(process.env.GROQ_API_KEY || process.env.OPENROUTER_API_KEY),
+        configured: llmConfigured,
+        status: llmStatus,
         provider,
         model,
         lastKnownErrorType: llmHealthState?.lastKnownErrorType || null,

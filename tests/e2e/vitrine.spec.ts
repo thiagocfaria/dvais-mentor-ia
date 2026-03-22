@@ -39,23 +39,25 @@ test.describe('Vitrine pública', () => {
     await expect(page.getByText(/demo de interface/i)).toBeVisible()
   })
 
-  test('assistente mobile abre em texto, mantém fallback visível e permite seleção contextual', async ({
+  test('assistente mobile abre direto no chat sem etapa de ativação', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/', { waitUntil: 'networkidle' })
 
+    // 1 clique: abre o chat direto
     await page.getByRole('button', { name: /falar com davi/i }).click()
-    await page.getByRole('button', { name: /ativar assistente/i }).click()
-    await expect(page.getByText(/escolha o modo do assistente/i)).toBeVisible()
 
-    await page.getByRole('button', { name: /texto \+ toque/i }).click()
+    // Chat já está pronto — sem "Ativar assistente" nem ConsentModal
+    await expect(page.getByRole('button', { name: /ativar assistente/i })).toHaveCount(0)
+    await expect(page.getByText(/escolha o modo do assistente/i)).toHaveCount(0)
+    await expect(page.getByPlaceholder(/pergunte algo/i)).toBeVisible()
 
-    const selectionButton = page.getByRole('button', { name: /selecionar item/i }).last()
+    // Botão Selecionar item está disponível como ação secundária
+    const selectionButton = page.getByRole('button', { name: /selecionar item/i })
+    await expect(selectionButton).toHaveCount(1)
 
-    await expect(page.getByPlaceholder(/escreva sua pergunta/i)).toBeVisible()
-    await expect(selectionButton).toBeVisible()
-
+    // Testar seleção contextual
     await selectionButton.scrollIntoViewIfNeeded()
     await selectionButton.click()
     const selectionOverlay = page.getByTestId('assistente-selection-overlay')
@@ -72,6 +74,5 @@ test.describe('Vitrine pública', () => {
     await featureHeading.click()
 
     await expect(page.getByText(/contexto selecionado/i)).toBeVisible()
-    await expect(page.getByText(/selecionado: o que o projeto realmente entrega/i)).toBeVisible()
   })
 })

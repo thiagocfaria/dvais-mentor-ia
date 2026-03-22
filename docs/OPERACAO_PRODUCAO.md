@@ -16,7 +16,10 @@
 - Monitorar taxa de erros 4xx/5xx no endpoint do assistente.
 
 ## Checklist rapido
-- [ ] Lint e testes OK.
-- [ ] Build OK.
-- [ ] Variaveis de ambiente configuradas (LLM e KV).
+- [ ] Lint e testes OK (`npm run lint && npm run test:unit`).
+- [ ] Build OK (`npm run build`).
+- [ ] Pelo menos uma chave LLM configurada (`GROQ_API_KEY` ou `OPENROUTER_API_KEY`).
+- [ ] `/api/health` retorna `llm.configured: true` e `llm.status: ok`.
+- [ ] Rodar `npx tsx scripts/check_assistant.ts` para validar IA, health e rota.
+- [ ] Variaveis de ambiente de KV configuradas (se aplicavel).
 - [ ] Metricas recebendo dados em prod.

@@ -10,7 +10,6 @@ export type AssistantHeaderProps = {
   selectionMode: boolean
   speechAvailable: boolean
   isCoarsePointer: boolean
-  onToggleSelection: () => void
   onDeactivate: () => void
 }
 
@@ -38,7 +37,6 @@ export function AssistantHeader({
   selectionMode: selectionEnabled,
   speechAvailable,
   isCoarsePointer,
-  onToggleSelection,
   onDeactivate,
 }: AssistantHeaderProps) {
   return (
@@ -68,24 +66,12 @@ export function AssistantHeader({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            className={`rounded-xl border px-3 py-2 text-xs font-medium transition-colors ${
-              selectionEnabled
-                ? 'border-cyan-300/40 bg-cyan-400/15 text-cyan-100'
-                : 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
-            }`}
-            onClick={onToggleSelection}
-          >
-            {selectionEnabled ? 'Cancelar seleção' : 'Selecionar item'}
-          </button>
-          <button
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white hover:bg-white/10 transition-colors"
-            onClick={onDeactivate}
-          >
-            Fechar
-          </button>
-        </div>
+        <button
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white hover:bg-white/10 transition-colors"
+          onClick={onDeactivate}
+        >
+          Fechar
+        </button>
       </div>
 
       <div className="mt-3 min-h-[32px]">
