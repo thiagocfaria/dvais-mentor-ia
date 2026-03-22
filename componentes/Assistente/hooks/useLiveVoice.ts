@@ -5,6 +5,7 @@ import {
   startSpeechRecognition,
   stopSpeechRecognition,
   isSpeechRecognitionAvailable,
+  type SpeechRecognitionError,
 } from '@/biblioteca/assistente/speechRecognition'
 
 type UseLiveVoiceArgs = {
@@ -20,6 +21,32 @@ type UseLiveVoiceArgs = {
   setQuestion: (value: string) => void
   setCaption: (value: string) => void
   setContinuousMode: (value: boolean) => void
+}
+
+export function shouldAutoSubmitManualTranscript(args: { text: string; isFinal: boolean }) {
+  return args.isFinal && args.text.trim().length > 2
+}
+
+export function shouldRestartContinuousListening(args: {
+  continuousMode: boolean
+  isActive: boolean
+  isThinking: boolean
+  isTTSSpeaking: boolean
+  submittedInSession: boolean
+  endReason?: 'ended' | 'manual_stop'
+}) {
+  return (
+    args.continuousMode &&
+    args.isActive &&
+    !args.isThinking &&
+    !args.isTTSSpeaking &&
+    !args.submittedInSession &&
+    args.endReason !== 'manual_stop'
+  )
+}
+
+function voiceErrorMessage(error: SpeechRecognitionError) {
+  return error.message
 }
 
 export function useLiveVoice({
@@ -38,12 +65,18 @@ export function useLiveVoice({
   const speechCleanupRef = useRef<(() => void) | null>(null)
   const startContinuousListeningRef = useRef<(() => void) | null>(null)
   const onEndTimeoutRef = useRef<number | null>(null) // Para cleanup de timeout em onEnd
+  const submittedInSessionRef = useRef(false)
+  const manualSubmitTimeoutRef = useRef<number | null>(null)
 
   const stopListening = useCallback(() => {
     // Limpar timeout de onEnd se existir
     if (onEndTimeoutRef.current !== null) {
       clearTimeout(onEndTimeoutRef.current)
       onEndTimeoutRef.current = null
+    }
+    if (manualSubmitTimeoutRef.current !== null) {
+      clearTimeout(manualSubmitTimeoutRef.current)
+      manualSubmitTimeoutRef.current = null
     }
     stopSpeechRecognition()
     speechCleanupRef.current?.()
@@ -67,6 +100,7 @@ export function useLiveVoice({
         return
       }
 
+      submittedInSessionRef.current = false
       const speechAvail = hasSTT()
       const ttsAvail = hasTTS()
 
@@ -78,7 +112,8 @@ export function useLiveVoice({
           },
           onResult: result => {
             setQuestion(result.text)
-            if (result.isFinal && result.text.trim().length > 2) {
+            if (shouldAutoSubmitManualTranscript(result)) {
+              submittedInSessionRef.current = true
               const finalText = result.text.trim()
               setQuestion(finalText)
               setTimeout(() => {
@@ -95,7 +130,7 @@ export function useLiveVoice({
           },
           onError: error => {
             setIsListening(false)
-            if (error.includes('no-speech') || error.includes('Timeout')) {
+            if (error.code === 'no_speech' || error.code === 'stt_timeout') {
               setTimeout(() => {
                 if (
                   isActiveRef.current &&
@@ -107,24 +142,26 @@ export function useLiveVoice({
                 }
               }, 1000)
             } else {
-              setCaption(`Erro: ${error}`)
+              setCaption(`Erro: ${voiceErrorMessage(error)}`)
               setContinuousMode(false)
             }
             speechCleanupRef.current?.()
             speechCleanupRef.current = null
           },
-          onEnd: () => {
+          onEnd: reason => {
             // Limpar timeout anterior se existir
             if (onEndTimeoutRef.current !== null) {
               clearTimeout(onEndTimeoutRef.current)
             }
             onEndTimeoutRef.current = window.setTimeout(() => {
-              if (
-                isActiveRef.current &&
-                continuousModeRef.current &&
-                !isThinkingRef.current &&
-                !isTTSSpeakingRef.current
-              ) {
+              if (shouldRestartContinuousListening({
+                continuousMode: continuousModeRef.current,
+                isActive: isActiveRef.current,
+                isThinking: isThinkingRef.current,
+                isTTSSpeaking: isTTSSpeakingRef.current,
+                submittedInSession: submittedInSessionRef.current,
+                endReason: reason,
+              })) {
                 startListening()
               } else {
                 setIsListening(false)
@@ -173,24 +210,39 @@ export function useLiveVoice({
     const cleanup = await startSpeechRecognition(
       {
         onStart: () => {
+          submittedInSessionRef.current = false
           setIsListening(true)
           setCaption('Ouvindo...')
         },
         onResult: result => {
           setQuestion(result.text)
-          if (result.isFinal) {
+          if (shouldAutoSubmitManualTranscript(result)) {
+            submittedInSessionRef.current = true
             setIsListening(false)
-            setCaption('Captura finalizada. Clique em "Perguntar" para enviar.')
+            setCaption('Captura finalizada. Enviando pergunta...')
+            if (manualSubmitTimeoutRef.current !== null) {
+              clearTimeout(manualSubmitTimeoutRef.current)
+            }
+            manualSubmitTimeoutRef.current = window.setTimeout(() => {
+              const speechAvail = hasSTT()
+              const ttsAvail = hasTTS()
+              handleAskRef.current?.(speechAvail, ttsAvail)
+              manualSubmitTimeoutRef.current = null
+            }, 250)
           }
         },
         onError: error => {
           setIsListening(false)
-          setCaption(error)
+          setCaption(voiceErrorMessage(error))
           speechCleanupRef.current?.()
           speechCleanupRef.current = null
         },
-        onEnd: () => {
+        onEnd: reason => {
           setIsListening(false)
+          if (reason !== 'manual_stop') {
+            speechCleanupRef.current = null
+            return
+          }
           speechCleanupRef.current = null
         },
       },

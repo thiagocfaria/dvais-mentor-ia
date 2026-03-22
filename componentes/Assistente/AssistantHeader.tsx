@@ -1,10 +1,11 @@
 'use client'
 
-import type { VoiceRuntimeState } from './types'
+import type { VoiceIssue, VoiceRuntimeState } from './types'
 import { ThinkingIndicator, ListeningWave } from './StatusIndicators'
 
 export type AssistantHeaderProps = {
   runtimeState: VoiceRuntimeState
+  voiceIssue: VoiceIssue
   continuousMode: boolean
   selectionMode: boolean
   speechAvailable: boolean
@@ -15,9 +16,13 @@ export type AssistantHeaderProps = {
 
 function statusLabel(
   runtimeState: VoiceRuntimeState,
+  voiceIssue: VoiceIssue,
   continuousMode: boolean,
   selectionMode: boolean
 ) {
+  if (voiceIssue === 'autoplay_blocked') return 'Áudio bloqueado'
+  if (voiceIssue === 'tts_unavailable' || voiceIssue === 'speech_not_supported') return 'Sem suporte'
+  if (voiceIssue === 'mic_denied') return 'Microfone bloqueado'
   if (runtimeState === 'listening') return 'Ouvindo'
   if (runtimeState === 'thinking') return 'Pensando'
   if (runtimeState === 'speaking') return 'Falando'
@@ -28,6 +33,7 @@ function statusLabel(
 
 export function AssistantHeader({
   runtimeState,
+  voiceIssue,
   continuousMode,
   selectionMode: selectionEnabled,
   speechAvailable,
@@ -49,7 +55,7 @@ export function AssistantHeader({
           </div>
           <div className="flex flex-wrap gap-2">
             <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] text-cyan-100">
-              {statusLabel(runtimeState, continuousMode, selectionEnabled)}
+              {statusLabel(runtimeState, voiceIssue, continuousMode, selectionEnabled)}
             </span>
             <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200">
               {speechAvailable ? (isCoarsePointer ? 'Voz manual' : 'Voz disponível') : 'Somente texto'}
@@ -83,7 +89,13 @@ export function AssistantHeader({
       </div>
 
       <div className="mt-3 min-h-[32px]">
-        {runtimeState === 'listening' ? (
+        {voiceIssue === 'autoplay_blocked' ? (
+          <div className="px-4 py-2 text-xs text-amber-200">Áudio bloqueado. Toque em "Ouvir resposta" para reproduzir manualmente.</div>
+        ) : voiceIssue === 'tts_unavailable' || voiceIssue === 'speech_not_supported' ? (
+          <div className="px-4 py-2 text-xs text-slate-300">Voz indisponível neste navegador. O chat continua funcionando em texto.</div>
+        ) : voiceIssue === 'mic_denied' ? (
+          <div className="px-4 py-2 text-xs text-rose-200">Microfone bloqueado. Libere a permissão no navegador ou siga em texto.</div>
+        ) : runtimeState === 'listening' ? (
           <ListeningWave />
         ) : runtimeState === 'thinking' ? (
           <ThinkingIndicator />

@@ -43,6 +43,7 @@ describe('speechRecognition (mock)', () => {
     vi.unstubAllGlobals()
     stopSpeechRecognition()
     resetSpeechPermissionCache()
+    vi.useRealTimers()
   })
 
   test('retorna erro quando SpeechRecognition nao existe', async () => {
@@ -51,7 +52,9 @@ describe('speechRecognition (mock)', () => {
     const onError = vi.fn()
     await startSpeechRecognition({ onError })
 
-    expect(onError).toHaveBeenCalled()
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'speech_not_supported' })
+    )
   })
 
   test('retorna erro quando permissao e negada', async () => {
@@ -63,7 +66,9 @@ describe('speechRecognition (mock)', () => {
     const onError = vi.fn()
     await startSpeechRecognition({ onError })
 
-    expect(onError).toHaveBeenCalled()
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'mic_permission_denied' })
+    )
   })
 
   test('emite onStart e onResult no fluxo basico', async () => {
@@ -93,5 +98,35 @@ describe('speechRecognition (mock)', () => {
 
     expect(onResult).toHaveBeenCalled()
     cleanup()
+  })
+
+  test('emite timeout de silêncio com código estruturado', async () => {
+    vi.useFakeTimers()
+    mockWindow()
+    mockNavigator(() =>
+      Promise.resolve({ getTracks: () => [{ stop: vi.fn() }] })
+    )
+
+    const onError = vi.fn()
+    await startSpeechRecognition({ onError }, { silenceTimeoutMs: 50 })
+
+    await vi.advanceTimersByTimeAsync(60)
+
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'stt_timeout' })
+    )
+  })
+
+  test('sinaliza manual_stop quando a limpeza encerra a captura', async () => {
+    mockWindow()
+    mockNavigator(() =>
+      Promise.resolve({ getTracks: () => [{ stop: vi.fn() }] })
+    )
+
+    const onEnd = vi.fn()
+    const cleanup = await startSpeechRecognition({ onEnd })
+    cleanup()
+
+    expect(onEnd).toHaveBeenCalledWith('manual_stop')
   })
 })

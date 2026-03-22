@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { TTSResult } from '@/biblioteca/assistente/textToSpeech'
 import { speakText } from '@/biblioteca/assistente/textToSpeech'
 import { detectIntent } from '@/biblioteca/assistente/intentDetection'
 import { inferTopicHintFromText, questionLooksIndependent } from '@/biblioteca/assistente/conversationSignals'
@@ -8,7 +9,7 @@ import { pickVariant } from '@/biblioteca/assistente/knowledgeBase'
 import type { KBAction } from '@/biblioteca/assistente/knowledgeBase'
 import { stopHighlight } from '@/biblioteca/assistente/cometEvents'
 import type { ClickedContext } from './useClickContext'
-import type { TranscriptEntry, AssistantMode } from '../types'
+import type { TranscriptEntry, AssistantMode, VoiceIssue } from '../types'
 import { CLICK_CONTEXT_TTL_MS } from '../types'
 import { normalizeTtsText } from '../utils'
 
@@ -93,6 +94,41 @@ function mapAssistantError(data: Record<string, unknown>): string {
   return ''
 }
 
+export function mapTtsResultToVoiceIssue(result: TTSResult): VoiceIssue {
+  if (result.ok) return 'none'
+  switch (result.reason) {
+    case 'autoplay_blocked':
+      return 'autoplay_blocked'
+    case 'tts_unavailable':
+      return 'tts_unavailable'
+    default:
+      return 'tts_failed'
+  }
+}
+
+export function getVoiceDiagnosticMessage(issue: VoiceIssue): string {
+  switch (issue) {
+    case 'autoplay_blocked':
+      return 'O navegador não liberou áudio automático. A resposta foi mantida no chat e você pode tocar em "Ouvir resposta".'
+    case 'tts_unavailable':
+      return 'Este navegador não oferece fala confiável aqui. A resposta continua disponível em texto.'
+    case 'mic_denied':
+      return 'O microfone foi bloqueado. Libere a permissão no cadeado do navegador ou siga em texto.'
+    case 'speech_not_supported':
+      return 'Este navegador não suporta captura de voz confiável aqui. O chat continua em texto.'
+    case 'no_speech':
+      return 'Nenhum áudio foi detectado. Tente falar novamente ou use o texto.'
+    case 'audio_capture_failed':
+      return 'Não foi possível capturar o microfone. Verifique a permissão e o dispositivo de áudio.'
+    case 'stt_timeout':
+      return 'A captura ficou em silêncio por muito tempo. Tente de novo ou use o texto.'
+    case 'tts_failed':
+      return 'A resposta chegou no chat, mas a fala falhou desta vez. Você pode tentar "Ouvir resposta".'
+    default:
+      return ''
+  }
+}
+
 /**
  * Gerencia a lógica principal de perguntas/respostas do assistente:
  * validação, histórico, chamada à API, TTS e atualização de UI.
@@ -138,6 +174,7 @@ export function useAssistantAPI(args: {
   const [isTTSSpeaking, setIsTTSSpeaking] = useState(false)
   const [diagnosticMessage, setDiagnosticMessage] = useState('')
   const [audioReplayText, setAudioReplayText] = useState('')
+  const [voiceIssue, setVoiceIssue] = useState<VoiceIssue>('none')
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const handleAskRef = useRef<
@@ -159,10 +196,16 @@ export function useAssistantAPI(args: {
     if (!audioReplayText) return
     setIsTTSSpeaking(true)
     try {
-      const result = await speakText(normalizeTtsText(audioReplayText))
+      const result = await speakText(normalizeTtsText(audioReplayText), {
+        kind: 'replay',
+        interrupt: true,
+      })
       if (!result.ok) {
-        setDiagnosticMessage('O navegador bloqueou o áudio automático. A resposta continua disponível no chat.')
+        const issue = mapTtsResultToVoiceIssue(result)
+        setVoiceIssue(issue)
+        setDiagnosticMessage(getVoiceDiagnosticMessage(issue))
       } else {
+        setVoiceIssue('none')
         setDiagnosticMessage('')
       }
     } finally {
@@ -187,13 +230,22 @@ export function useAssistantAPI(args: {
         setQaAnswer(clearMessage)
         setCaption(clearMessage)
         setAudioReplayText(clearMessage)
+        setVoiceIssue('none')
         setConversationHistory(prev =>
           [...prev, { question: q, answer: clearMessage, timestamp: Date.now() }].slice(-10)
         )
         if (useVoice && ttsAvailable) {
           setIsTTSSpeaking(true)
           try {
-            await speakText(normalizeTtsText(clearMessage))
+            const ttsResult = await speakText(normalizeTtsText(clearMessage), {
+              kind: 'assistant-answer',
+              interrupt: true,
+            })
+            if (!ttsResult.ok) {
+              const issue = mapTtsResultToVoiceIssue(ttsResult)
+              setVoiceIssue(issue)
+              setDiagnosticMessage(getVoiceDiagnosticMessage(issue))
+            }
           } finally {
             setIsTTSSpeaking(false)
           }
@@ -219,6 +271,7 @@ export function useAssistantAPI(args: {
       setQuestion('')
       setIsThinking(true)
       setDiagnosticMessage('')
+      setVoiceIssue('none')
 
       const intent = detectIntent(q, {
         detectMultiple: true,
@@ -308,15 +361,23 @@ export function useAssistantAPI(args: {
           }
           setIsTTSSpeaking(true)
           try {
-            const ttsResult = await speakText(normalizeTtsText(spoken))
+            const ttsResult = await speakText(normalizeTtsText(spoken), {
+              kind: 'assistant-answer',
+              interrupt: true,
+            })
             if (!ttsResult.ok) {
-              setDiagnosticMessage(
-                'O navegador não liberou áudio automático. A resposta foi mantida no chat e você pode tocar em "Ouvir resposta".'
-              )
+              const issue = mapTtsResultToVoiceIssue(ttsResult)
+              setVoiceIssue(issue)
+              setDiagnosticMessage(getVoiceDiagnosticMessage(issue))
+            } else {
+              setVoiceIssue('none')
             }
           } finally {
             setIsTTSSpeaking(false)
           }
+        } else if (useVoice && !ttsAvailable) {
+          setVoiceIssue('tts_unavailable')
+          setDiagnosticMessage(getVoiceDiagnosticMessage('tts_unavailable'))
         }
 
         setConversationHistory(prev => {
@@ -351,6 +412,7 @@ export function useAssistantAPI(args: {
         setCaption('Falha ao consultar o assistente. Tente novamente.')
         setQaAnswer('')
         setAudioReplayText('')
+        setVoiceIssue('none')
         setDiagnosticMessage('A requisição falhou antes de concluir. Verifique a rede e tente novamente.')
         setConversationHistory(prev => {
           const updated = [...prev]
@@ -390,6 +452,7 @@ export function useAssistantAPI(args: {
     setIsThinking,
     abortControllerRef,
     diagnosticMessage,
+    voiceIssue,
     canReplayAudio: !!audioReplayText,
     replayAudio,
   }

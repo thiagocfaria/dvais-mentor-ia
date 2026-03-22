@@ -1,58 +1,47 @@
 'use client'
 
-/**
- * Speech-to-Text (STT) usando Web Speech API
- * Suporta Web Worker (quando disponível) com fallback para API direta
- * Fallback automático para input de texto se não disponível
- */
-
 export type SpeechRecognitionResult = {
   text: string
   isFinal: boolean
   confidence?: number
 }
 
+export type SpeechRecognitionErrorCode =
+  | 'speech_not_supported'
+  | 'mic_permission_denied'
+  | 'no_speech'
+  | 'audio_capture_failed'
+  | 'stt_timeout'
+  | 'stt_error'
+
+export type SpeechRecognitionError = {
+  code: SpeechRecognitionErrorCode
+  message: string
+}
+
 export type SpeechRecognitionCallbacks = {
   onResult?: (result: SpeechRecognitionResult) => void
-  onError?: (error: string) => void
+  onError?: (error: SpeechRecognitionError) => void
   onStart?: () => void
-  onEnd?: () => void
+  onEnd?: (reason?: 'ended' | 'manual_stop') => void
 }
 
 export type SpeechRecognitionOptions = {
-  /**
-   * Timeout de silêncio em milissegundos
-   * Padrão: 20000ms (20 segundos) para modo Live
-   * Modo Manual pode usar valores menores (ex: 10000ms)
-   */
   silenceTimeoutMs?: number
 }
 
 let recognitionInstance: SpeechRecognition | null = null
-let workerInstance: Worker | null = null
-let useWorker = false
 let microphonePermissionState: 'unknown' | 'granted' | 'denied' = 'unknown'
 let permissionRequestPromise: Promise<boolean> | null = null
 
-// Nota: Web Speech API não pode ser usada em Workers
-// Os workers são criados mas não são usados para SpeechRecognition
-// Eles podem ser usados para processamento de resultados no futuro
-// Por enquanto, usamos API direta com otimizações
-useWorker = false
+function createError(code: SpeechRecognitionErrorCode, message: string): SpeechRecognitionError {
+  return { code, message }
+}
 
 export function getSpeechRecognition(): SpeechRecognitionConstructor | null {
   if (typeof window === 'undefined') return null
-
-  // Chrome/Edge
-  if (window.webkitSpeechRecognition) {
-    return window.webkitSpeechRecognition
-  }
-
-  // Firefox (experimental)
-  if (window.SpeechRecognition) {
-    return window.SpeechRecognition
-  }
-
+  if (window.webkitSpeechRecognition) return window.webkitSpeechRecognition
+  if (window.SpeechRecognition) return window.SpeechRecognition
   return null
 }
 
@@ -60,13 +49,12 @@ export function isSpeechRecognitionAvailable(): boolean {
   return getSpeechRecognition() !== null
 }
 
-// Solicitar permissão de microfone explicitamente
 async function requestMicrophonePermission(): Promise<boolean> {
   if (microphonePermissionState === 'granted') return true
   if (microphonePermissionState === 'denied') return false
   if (permissionRequestPromise) return permissionRequestPromise
 
-  if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
     return false
   }
 
@@ -77,10 +65,9 @@ async function requestMicrophonePermission(): Promise<boolean> {
       microphonePermissionState = 'granted'
       return true
     } catch (error: unknown) {
-      const err = error as { name?: string; message?: string }
+      const err = error as { name?: string }
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         microphonePermissionState = 'denied'
-        return false
       }
       return false
     } finally {
@@ -97,18 +84,23 @@ export async function startSpeechRecognition(
 ): Promise<() => void> {
   const Recognition = getSpeechRecognition()
   if (!Recognition) {
-    callbacks.onError?.('Speech Recognition não disponível neste navegador.')
+    callbacks.onError?.(
+      createError('speech_not_supported', 'Captura de voz não disponível neste navegador.')
+    )
     return () => {}
   }
 
-  // Solicitar permissão de microfone antes de iniciar
   const hasPermission = await requestMicrophonePermission()
   if (!hasPermission) {
-    callbacks.onError?.('Permissão de microfone negada. Clique no ícone de cadeado na barra de endereço e permita o microfone, ou use o botão de texto.')
+    callbacks.onError?.(
+      createError(
+        'mic_permission_denied',
+        'Permissão de microfone negada. Clique no cadeado do navegador e permita o microfone, ou use o botão de texto.'
+      )
+    )
     return () => {}
   }
 
-  // Criar nova instância
   const recognition = new Recognition()
   recognition.lang = 'pt-BR'
   recognition.continuous = true
@@ -116,29 +108,41 @@ export async function startSpeechRecognition(
 
   let finalTranscript = ''
   let silenceTimeoutId: ReturnType<typeof setTimeout> | null = null
-  // Timeout configurável: padrão 20s para modo Live (permite TTS + tempo de resposta do usuário)
-  // Modo Manual pode usar valores menores (ex: 10s)
-  const SILENCE_TIMEOUT_MS = options?.silenceTimeoutMs ?? 20000 // 20 segundos padrão (modo Live)
-  const CONFIDENCE_THRESHOLD = 0.7
+  let endReason: 'ended' | 'manual_stop' = 'ended'
+  const silenceTimeoutMs = options?.silenceTimeoutMs ?? 20000
 
-  const resetSilenceTimeout = () => {
+  const clearSilenceTimeout = () => {
     if (silenceTimeoutId) {
       clearTimeout(silenceTimeoutId)
+      silenceTimeoutId = null
     }
-    const timeoutSeconds = Math.round(SILENCE_TIMEOUT_MS / 1000)
+  }
+
+  const resetSilenceTimeout = () => {
+    clearSilenceTimeout()
     silenceTimeoutId = setTimeout(() => {
-      callbacks.onError?.(`Timeout: nenhum áudio detectado por ${timeoutSeconds} segundos.`)
-      stopSpeechRecognition()
-    }, SILENCE_TIMEOUT_MS)
+      callbacks.onError?.(
+        createError(
+          'stt_timeout',
+          `Timeout: nenhum áudio detectado por ${Math.round(silenceTimeoutMs / 1000)} segundos.`
+        )
+      )
+      try {
+        recognition.stop()
+      } catch {
+        // noop
+      }
+    }, silenceTimeoutMs)
   }
 
   recognition.onstart = () => {
+    endReason = 'ended'
     resetSilenceTimeout()
     callbacks.onStart?.()
   }
 
   recognition.onresult = (event: SpeechRecognitionEvent) => {
-    resetSilenceTimeout() // Resetar timeout a cada resultado
+    resetSilenceTimeout()
     let interimTranscript = ''
 
     for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -151,86 +155,66 @@ export async function startSpeechRecognition(
         interimTranscript += transcript
       }
 
-      const fullText = finalTranscript + interimTranscript
-      const isFinal = interimTranscript === ''
-
-      // Filtrar por confidence threshold apenas para resultados finais
-      if (isFinal && confidence < CONFIDENCE_THRESHOLD) {
-        // Resultado final com baixa confiança - mostrar mas com aviso
-        callbacks.onResult?.({
-          text: fullText.trim(),
-          isFinal: true,
-          confidence,
-        })
-      } else {
-        callbacks.onResult?.({
-          text: fullText.trim(),
-          isFinal,
-          confidence,
-        })
-      }
+      const fullText = (finalTranscript + interimTranscript).trim()
+      callbacks.onResult?.({
+        text: fullText,
+        isFinal: interimTranscript === '',
+        confidence,
+      })
     }
   }
 
   recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-    if (silenceTimeoutId) {
-      clearTimeout(silenceTimeoutId)
-      silenceTimeoutId = null
-    }
+    clearSilenceTimeout()
 
-    let errorMsg = 'Erro ao capturar voz.'
+    let error = createError('stt_error', 'Erro ao capturar voz.')
     if (event.error === 'no-speech') {
-      errorMsg = 'Nenhum áudio detectado. Tente novamente.'
+      error = createError('no_speech', 'Nenhum áudio detectado. Tente novamente.')
     } else if (event.error === 'audio-capture') {
-      errorMsg = 'Microfone não encontrado ou sem permissão.'
+      error = createError('audio_capture_failed', 'Microfone não encontrado ou sem permissão.')
     } else if (event.error === 'not-allowed') {
       microphonePermissionState = 'denied'
-      errorMsg = 'Permissão de microfone negada. Use o botão de texto.'
+      error = createError('mic_permission_denied', 'Permissão de microfone negada. Use o botão de texto.')
     }
-    callbacks.onError?.(errorMsg)
+
+    callbacks.onError?.(error)
   }
 
   recognition.onend = () => {
-    if (silenceTimeoutId) {
-      clearTimeout(silenceTimeoutId)
-      silenceTimeoutId = null
-    }
-    callbacks.onEnd?.()
+    clearSilenceTimeout()
+    callbacks.onEnd?.(endReason)
   }
 
   try {
     recognition.start()
     recognitionInstance = recognition
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Erro ao iniciar captura de voz.'
-    callbacks.onError?.(msg)
+    callbacks.onError?.(
+      createError('stt_error', error instanceof Error ? error.message : 'Erro ao iniciar captura de voz.')
+    )
     return () => {}
   }
 
-  // Retornar função de cleanup
   return () => {
-    if (silenceTimeoutId) {
-      clearTimeout(silenceTimeoutId)
-      silenceTimeoutId = null
-    }
+    clearSilenceTimeout()
+    endReason = 'manual_stop'
     try {
       recognition.stop()
     } catch {
-      // Ignorar erro ao parar
+      // noop
     }
     recognitionInstance = null
   }
 }
 
 export function stopSpeechRecognition() {
-  if (recognitionInstance) {
-    try {
-      recognitionInstance.stop()
-    } catch {
-      // Ignorar erro
-    }
-    recognitionInstance = null
+  if (!recognitionInstance) return
+  try {
+    recognitionInstance.stop()
+  } catch {
+    // noop
   }
+  recognitionInstance = null
 }
 
 export function resetSpeechPermissionCache() {

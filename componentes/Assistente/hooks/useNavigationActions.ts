@@ -37,7 +37,9 @@ export function useNavigationActions(args: {
     async (route: string, targetId?: string) => {
       const navMessage = `Para acessar esta informação, vamos para a página correspondente. Clique no botão destacado.`
       setCaption(navMessage)
-      if (useVoice && hasTTS()) speakText(normalizeTtsText(navMessage))
+      if (useVoice && hasTTS()) {
+        speakText(normalizeTtsText(navMessage), { kind: 'navigation' }).catch(() => {})
+      }
 
       const buttonTargetId = getButtonTargetIdForRoute(route)
       if (!buttonTargetId) {
@@ -139,7 +141,9 @@ export function useNavigationActions(args: {
             const routeName = routeNames[route] || route
             const explanation = `Estamos na página ${routeName}. ${targetId ? 'Veja a seção destacada.' : ''}`
             setCaption(explanation)
-            if (hasTTS()) speakText(normalizeTtsText(explanation))
+            if (hasTTS()) {
+              speakText(normalizeTtsText(explanation), { kind: 'navigation' }).catch(() => {})
+            }
           } else {
             sessionStorage.removeItem('pendingNavigation')
             setCaption('A seção está nesta página, role até encontrar.')

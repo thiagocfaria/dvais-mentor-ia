@@ -1,42 +1,58 @@
-# Assistente Live (voz + selecao)
+# Assistente Live
 
 ## Objetivo
-Apresentar o produto como um assistente contextual: o usuario seleciona um item da pagina e faz perguntas por voz. O assistente responde de forma curta, explica a interface e guia a navegacao com destaque visual.
 
-## Como funciona
-1. **Ativacao**: usuario concede permissao de microfone.
-2. **Selecao**: o usuario toca no botao "Selecionar item" exibido sobre os elementos interativos. Clique unico mantem o comportamento normal (abrir paginas).
-3. **Pergunta por voz**: o assistente capta a fala, envia a pergunta e responde em tempo real.
-4. **Acoes visuais**: scroll, highlight ou navegacao guiada.
-5. **Widget global**: nas paginas publicas (login, cadastro e paginas de conteudo), um botao flutuante abre o assistente ao vivo.
+Apresentar o produto como um assistente contextual com três caminhos compatíveis entre si:
+
+- texto;
+- voz manual (`push-to-talk`);
+- conversa contínua apenas em desktop/navegadores mais estáveis.
+
+O assistente usa contexto de clique, responde em texto, tenta falar a resposta quando a voz estiver ativa e mantém fallback claro quando o navegador bloquear áudio ou não suportar voz.
+
+## Fluxo atual
+
+1. **Ativação**
+   - o usuário escolhe `Texto + toque`, `Voz manual` ou `Conversa contínua`;
+   - no mobile, o caminho recomendado continua sendo `Texto + toque`.
+
+2. **Captura de voz**
+   - `Voz manual`: o usuário toca em `Microfone` ou `Tocar para falar`;
+   - ao receber transcript final útil, a pergunta é enviada automaticamente;
+   - `Conversa contínua`: a escuta reinicia apenas quando a captura terminou sem envio ou depois da resposta, sem restart duplo.
+
+3. **Resposta**
+   - a resposta sempre aparece no chat;
+   - se voz estiver ativa e TTS estiver disponível, o assistente tenta falar a resposta;
+   - se o navegador bloquear o áudio, a UI explica o motivo e mantém `Ouvir resposta`.
+
+4. **Fallback**
+   - se STT falhar, o usuário continua pelo texto;
+   - se TTS falhar, a resposta continua no chat com diagnóstico explícito.
+
+## Estados de voz
+
+- `Ouvindo`
+- `Pensando`
+- `Falando`
+- `Áudio bloqueado`
+- `Sem suporte`
+- `Microfone bloqueado`
 
 ## Regras de UX
-- Modo texto fica oculto por padrao (debug apenas).
-- Se o usuario disser "entendi", "outro assunto" ou similar, a selecao e limpa.
-- A selecao expira automaticamente apos 2 minutos sem uso.
-- O assistente sempre pergunta se o usuario quer saber mais sobre o assunto selecionado.
 
-## Estados principais
-```mermaid
-stateDiagram-v2
-  [*] --> Inativo
-  Inativo --> Ativo: usuario ativa
-  Ativo --> Ouvindo: STT iniciado
-  Ouvindo --> Pensando: frase finalizada
-  Pensando --> Falando: TTS
-  Falando --> Ouvindo: modo continuo
-  Falando --> Ativo: modo manual
-  Ativo --> Inativo: desativar
-```
+- o chat em texto continua disponível mesmo quando a voz falha;
+- `Ouvir resposta` tenta novamente a fala com gesto explícito do usuário;
+- `intro`, `guia rápido` e `navegação` não devem cortar a resposta principal do assistente;
+- o mobile continua com `push-to-talk` manual, nunca como conversa contínua padrão.
 
-## Contexto do clique
-Quando o usuario seleciona um elemento, o sistema envia:
-- `clickedTargetId` (se o elemento tem ID mapeado)
-- `clickedText` (texto visivel do elemento)
-- `clickedTag` (tag HTML)
+## Limitações reais da plataforma
 
-Esse contexto ajuda a IA a responder sobre o item selecionado, mesmo que a pergunta seja generica.
+- STT depende da Web Speech API e varia por navegador;
+- TTS pode ser bloqueado por política de gesto/autoplay;
+- iPhone, Android e WebViews podem se comportar de forma diferente mesmo com o mesmo código.
 
 ## Debug
-- Ativar modo texto: `NEXT_PUBLIC_ASSISTENTE_TEXT_DEBUG=true`.
-- Mesmo em debug, o fluxo de voz continua disponivel.
+
+- o transcript local continua exportável em debug;
+- o relatório consolidado desta rodada está em `docs/P0_VOZ_PIPELINE_FINAL.md`.

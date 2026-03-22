@@ -145,6 +145,7 @@ export default function Assistente({
     setMode,
     abortControllerRef,
     diagnosticMessage,
+    voiceIssue,
     canReplayAudio,
     replayAudio,
   } = useAssistantAPI({
@@ -255,7 +256,7 @@ export default function Assistente({
       setCaption(msg)
       setHintMessage(msg)
       if (useVoice && hasTTS()) {
-        speakText(normalizeTtsText(msg)).catch(() => {})
+        speakText(normalizeTtsText(msg), { kind: 'guide' }).catch(() => {})
       }
       highlight(step.targetId)
     },
@@ -299,7 +300,7 @@ export default function Assistente({
       if (continuousAllowed) {
         if (voiceEnabled && ttsAvailable) {
           setIsTTSSpeaking(true)
-          speakText(normalizeTtsText(introMessage))
+          speakText(normalizeTtsText(introMessage), { kind: 'intro' })
             .catch(() => {})
             .finally(() => {
               setIsTTSSpeaking(false)
@@ -432,6 +433,7 @@ export default function Assistente({
         <div className="flex h-full flex-col">
           <AssistantHeader
             runtimeState={runtimeState}
+            voiceIssue={voiceIssue}
             continuousMode={continuousMode}
             selectionMode={selectionMode}
             speechAvailable={speechAvailable}
@@ -478,6 +480,7 @@ export default function Assistente({
             canReplayAudio={canReplayAudio}
             replayAudio={replayAudio}
             diagnosticMessage={diagnosticMessage}
+            voiceIssue={voiceIssue}
             isCoarsePointer={isCoarsePointer}
           />
         </div>

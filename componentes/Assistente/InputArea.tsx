@@ -1,6 +1,6 @@
 'use client'
 
-import type { GuidedStep, AssistantMode, VoiceRuntimeState } from './types'
+import type { GuidedStep, AssistantMode, VoiceIssue, VoiceRuntimeState } from './types'
 
 export type InputAreaProps = {
   enableTranscriptDebug: boolean
@@ -28,6 +28,7 @@ export type InputAreaProps = {
   canReplayAudio: boolean
   replayAudio: () => void
   diagnosticMessage: string
+  voiceIssue: VoiceIssue
   isCoarsePointer: boolean
 }
 
@@ -65,6 +66,7 @@ export function InputArea({
   canReplayAudio,
   replayAudio,
   diagnosticMessage,
+  voiceIssue,
   isCoarsePointer,
 }: InputAreaProps) {
   return (
@@ -86,6 +88,11 @@ export function InputArea({
         {mode === 'erro' && (
           <span className="rounded-full border border-rose-300/20 bg-rose-400/10 px-2.5 py-1 text-[11px] text-rose-100">
             Falha de integração
+          </span>
+        )}
+        {voiceIssue === 'autoplay_blocked' && (
+          <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-2.5 py-1 text-[11px] text-amber-100">
+            Áudio bloqueado
           </span>
         )}
       </div>

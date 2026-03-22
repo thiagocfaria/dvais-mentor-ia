@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildConversationHistory, buildConversationPayload } from '../useAssistantAPI'
+import {
+  buildConversationHistory,
+  buildConversationPayload,
+  getVoiceDiagnosticMessage,
+  mapTtsResultToVoiceIssue,
+} from '../useAssistantAPI'
 
 describe('buildConversationHistory', () => {
   it('envia as ultimas trocas completas em ordem user/assistant', () => {
@@ -80,5 +85,19 @@ describe('buildConversationHistory', () => {
 
     expect(payload.questionLooksIndependent).toBe(true)
     expect(payload.lastTopicHint).toBe('cadastro')
+  })
+
+  it('mapeia autoplay bloqueado para issue e mensagem úteis', () => {
+    const issue = mapTtsResultToVoiceIssue({ ok: false, reason: 'autoplay_blocked' })
+
+    expect(issue).toBe('autoplay_blocked')
+    expect(getVoiceDiagnosticMessage(issue)).toMatch(/ouvir resposta/i)
+  })
+
+  it('mapeia TTS indisponível para fallback textual explícito', () => {
+    const issue = mapTtsResultToVoiceIssue({ ok: false, reason: 'tts_unavailable' })
+
+    expect(issue).toBe('tts_unavailable')
+    expect(getVoiceDiagnosticMessage(issue)).toMatch(/continua disponível em texto/i)
   })
 })
