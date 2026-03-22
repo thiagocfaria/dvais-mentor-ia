@@ -5,7 +5,7 @@ Apresentar o produto como um assistente contextual: o usuario seleciona um item 
 
 ## Como funciona
 1. **Ativacao**: usuario concede permissao de microfone.
-2. **Selecao**: duplo clique rapido seleciona o assunto. Clique unico mantem o comportamento normal (abrir paginas).
+2. **Selecao**: o usuario toca no botao "Selecionar item" exibido sobre os elementos interativos. Clique unico mantem o comportamento normal (abrir paginas).
 3. **Pergunta por voz**: o assistente capta a fala, envia a pergunta e responde em tempo real.
 4. **Acoes visuais**: scroll, highlight ou navegacao guiada.
 5. **Widget global**: nas paginas publicas (login, cadastro e paginas de conteudo), um botao flutuante abre o assistente ao vivo.
@@ -30,7 +30,7 @@ stateDiagram-v2
 ```
 
 ## Contexto do clique
-Quando o usuario faz duplo clique, o sistema envia:
+Quando o usuario seleciona um elemento, o sistema envia:
 - `clickedTargetId` (se o elemento tem ID mapeado)
 - `clickedText` (texto visivel do elemento)
 - `clickedTag` (tag HTML)

@@ -1,7 +1,7 @@
 # Observabilidade e Metricas
 
 ## Web Vitals
-O componente `WebVitals` coleta as metricas CLS, FCP, FID, INP, LCP e TTFB.
+O componente `WebVitals` coleta as metricas CLS, FCP, INP, LCP e TTFB.
 Em producao, os dados sao enviados para `POST /api/metrics`.
 
 ## Endpoint de metricas
