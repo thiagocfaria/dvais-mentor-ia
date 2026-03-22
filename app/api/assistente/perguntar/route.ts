@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { validateActions } from '@/biblioteca/assistente/actionValidator'
+import { validateActions, type Action } from '@/biblioteca/assistente/actionValidator'
 import { logOps } from '@/biblioteca/logs/logOps'
 import { askFromKnowledgeBase } from '@/biblioteca/assistente/knowledgeBase'
 import { incrementCacheHit, incrementCacheMiss, shouldResetMetrics, resetMetrics } from '@/biblioteca/logs/metrics'
@@ -16,6 +16,7 @@ import { createOptimizedResponse } from '@/biblioteca/assistente/responseBuilder
 import { callLLM } from '@/biblioteca/assistente/llmAdapter'
 import { analyzeConversationContext } from '@/biblioteca/assistente/followUpContext'
 import { buildProductSupportResponse } from '@/biblioteca/assistente/supportResponses'
+import { buildAuthFlowGuidance } from '@/biblioteca/assistente/authFlowGuidance'
 
 const IP_LIMIT = 30
 const IP_WINDOW_MS = 60 * 60 * 1000
@@ -123,6 +124,22 @@ export async function POST(req: NextRequest) {
   const context =
     contextRaw && typeof contextRaw === 'object' ? (contextRaw as Record<string, unknown>) : {}
   const { hasClickContext, clickContextBlock, safeClickedTargetId } = extractClickContext(context)
+  const contextSignals = {
+    conversationSummary:
+      typeof context.conversationSummary === 'string'
+        ? context.conversationSummary.slice(0, 320)
+        : undefined,
+    lastQuestion:
+      typeof context.lastQuestion === 'string' ? context.lastQuestion.slice(0, 180) : undefined,
+    lastAnswer:
+      typeof context.lastAnswer === 'string' ? context.lastAnswer.slice(0, 240) : undefined,
+    lastTopicHint:
+      typeof context.lastTopicHint === 'string' ? context.lastTopicHint.slice(0, 32) : undefined,
+    questionLooksIndependent:
+      typeof context.questionLooksIndependent === 'boolean'
+        ? context.questionLooksIndependent
+        : undefined,
+  }
 
   // 6a. Validate history before scope and KB gating
   const validHistory: Array<{ role: string; content: string }> = []
@@ -142,6 +159,7 @@ export async function POST(req: NextRequest) {
   const conversationContext = analyzeConversationContext({
     sanitizedQuestion: sanitized,
     validHistory,
+    contextSignals,
   })
 
   const preDetectedIntent = detectIntent(sanitized, {
@@ -156,6 +174,11 @@ export async function POST(req: NextRequest) {
     shouldBypassKB: conversationContext.shouldBypassKB,
     kbBypassReason: conversationContext.kbBypassReason,
   })
+  const authFlowGuidance = buildAuthFlowGuidance({
+    sanitizedQuestion: sanitized,
+    flowHint: conversationContext.flowHint,
+    hasUsefulHistory: conversationContext.hasUsefulHistory,
+  })
   const supportResponse = buildProductSupportResponse(sanitized)
 
   // 7. Cache lookup
@@ -165,10 +188,12 @@ export async function POST(req: NextRequest) {
     hasClickContext ? 'click_context' : '',
     conversationContext.hasUsefulHistory ? 'history_present' : 'history_empty',
     conversationContext.topicHint ? `topic:${conversationContext.topicHint}` : '',
+    conversationContext.flowHint ? `flow:${conversationContext.flowHint}` : '',
     conversationContext.isEllipticalFollowUp ? 'elliptical_followup' : '',
     conversationContext.isTechnicalMetaQuestion ? 'technical_meta' : '',
     conversationContext.isOpenProductQuestion ? 'product_overview' : '',
     conversationContext.kbBypassReason || '',
+    authFlowGuidance ? `auth_flow:${authFlowGuidance.subtype}` : '',
     supportResponse ? `support:${supportResponse.subtype}` : '',
   ])
   const cached = await getFromCache(cacheKey)
@@ -179,7 +204,37 @@ export async function POST(req: NextRequest) {
   }
   incrementCacheMiss()
 
-  // 7a. Product support responses for mobile/voice issues
+  // 7a. Deterministic auth-flow responses for cadastro/login guidance
+  if (authFlowGuidance) {
+    const authActions = Array.isArray(authFlowGuidance.response.actions)
+      ? (authFlowGuidance.response.actions as Action[])
+      : []
+    const response = {
+      ...authFlowGuidance.response,
+      actions: validateActions(authActions, [...ALLOWED_IDS]),
+    }
+
+    cleanupCache()
+    await setInCache(cacheKey, {
+      response,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      lastAccessed: Date.now(),
+    })
+
+    await registerSuccess(user)
+    const latency = Math.round(performance.now() - started)
+    logOps({
+      topic: 'assistente',
+      status: 'auth_flow_guidance',
+      latencyMs: latency,
+      kbReason: authFlowGuidance.subtype,
+      user,
+    }).catch(() => {})
+
+    return createOptimizedResponse(response, false)
+  }
+
+  // 7b. Product support responses for mobile/voice issues
   if (supportResponse) {
     cleanupCache()
     await setInCache(cacheKey, {

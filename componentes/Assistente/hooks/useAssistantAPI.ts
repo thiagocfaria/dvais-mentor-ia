@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { speakText } from '@/biblioteca/assistente/textToSpeech'
 import { detectIntent } from '@/biblioteca/assistente/intentDetection'
+import { inferTopicHintFromText, questionLooksIndependent } from '@/biblioteca/assistente/conversationSignals'
 import { pickVariant } from '@/biblioteca/assistente/knowledgeBase'
 import type { KBAction } from '@/biblioteca/assistente/knowledgeBase'
 import { stopHighlight } from '@/biblioteca/assistente/cometEvents'
 import type { ClickedContext } from './useClickContext'
 import type { TranscriptEntry, AssistantMode } from '../types'
-import { CLICK_CONTEXT_TTL_MS, MAX_SPOKEN_LEN } from '../types'
+import { CLICK_CONTEXT_TTL_MS } from '../types'
 import { normalizeTtsText } from '../utils'
 
 export function buildConversationHistory(history: TranscriptEntry[]) {
@@ -21,6 +22,53 @@ export function buildConversationHistory(history: TranscriptEntry[]) {
     })
     .slice(-12)
     .map(entry => ({ ...entry, content: entry.content.slice(0, 240) }))
+}
+
+function trimByPriority(content: string, limit: number) {
+  return content.replace(/\s+/g, ' ').trim().slice(0, limit)
+}
+
+export function buildConversationPayload(
+  history: TranscriptEntry[],
+  currentQuestion: string,
+  activeClick?: ClickedContext | null
+) {
+  const relevantEntries = history
+    .filter(entry => entry.question || entry.answer)
+    .slice(-3)
+
+  const historyTurns = relevantEntries.flatMap((entry, index) => {
+    const isNewest = index === relevantEntries.length - 1
+    const isMiddle = index === relevantEntries.length - 2
+    const questionLimit = isNewest ? 240 : isMiddle ? 180 : 120
+    const answerLimit = isNewest ? 320 : isMiddle ? 220 : 160
+    const turns: Array<{ role: 'user' | 'assistant'; content: string }> = []
+    if (entry.question) turns.push({ role: 'user', content: trimByPriority(entry.question, questionLimit) })
+    if (entry.answer) turns.push({ role: 'assistant', content: trimByPriority(entry.answer, answerLimit) })
+    return turns
+  })
+
+  const lastEntry = [...history].reverse().find(entry => entry.question || entry.answer)
+  const lastQuestion = lastEntry?.question || ''
+  const lastAnswer = lastEntry?.answer || ''
+  const lastTopicHint = inferTopicHintFromText(lastQuestion, lastAnswer)
+  const independent = questionLooksIndependent(currentQuestion, lastTopicHint)
+
+  const summaryParts = [
+    lastTopicHint ? `Último tópico: ${lastTopicHint}.` : '',
+    lastQuestion ? `Última pergunta: ${trimByPriority(lastQuestion, 120)}.` : '',
+    lastAnswer ? `Última resposta útil: ${trimByPriority(lastAnswer, 180)}.` : '',
+    activeClick?.text ? `Último contexto de clique: ${trimByPriority(activeClick.text, 90)}.` : '',
+  ].filter(Boolean)
+
+  return {
+    history: historyTurns,
+    summary: summaryParts.join(' '),
+    lastQuestion,
+    lastAnswer,
+    lastTopicHint,
+    questionLooksIndependent: independent,
+  }
 }
 
 function mapAssistantError(data: Record<string, unknown>): string {
@@ -107,15 +155,6 @@ export function useAssistantAPI(args: {
     return clearPhrases.some(phrase => normalized.includes(phrase))
   }, [])
 
-  const appendFollowUp = useCallback((text: string): string => {
-    const trimmed = text.trim()
-    if (!trimmed) return text
-    if (trimmed.endsWith('?')) return trimmed
-    if (/quer saber mais/i.test(trimmed)) return trimmed
-    const next = `${trimmed} Quer saber mais sobre esse assunto?`
-    return next.length > MAX_SPOKEN_LEN ? trimmed : next
-  }, [])
-
   const replayAudio = useCallback(async () => {
     if (!audioReplayText) return
     setIsTTSSpeaking(true)
@@ -187,19 +226,23 @@ export function useAssistantAPI(args: {
         useFuzzy: true,
       })
 
-      const recentHistory = buildConversationHistory(conversationHistory)
-
       const now = Date.now()
       const activeClick =
         clickedContext && now - clickedContext.timestamp < CLICK_CONTEXT_TTL_MS
           ? clickedContext
           : null
+      const conversationPayload = buildConversationPayload(conversationHistory, q, activeClick)
 
       const context: Record<string, unknown> = {
         currentPage: typeof window !== 'undefined' ? window.location.pathname : '/',
         visibleSections: visibleElements,
         intent: intent.type,
         intentConfidence: intent.confidence,
+        conversationSummary: conversationPayload.summary,
+        lastQuestion: conversationPayload.lastQuestion,
+        lastAnswer: conversationPayload.lastAnswer,
+        lastTopicHint: conversationPayload.lastTopicHint,
+        questionLooksIndependent: conversationPayload.questionLooksIndependent,
       }
       if (activeClick) {
         if (activeClick.targetId) context.clickedTargetId = activeClick.targetId
@@ -218,7 +261,7 @@ export function useAssistantAPI(args: {
           headers,
           body: JSON.stringify({
             question: q,
-            history: recentHistory,
+            history: conversationPayload.history,
             context,
           }),
           signal: abortControllerRef.current.signal,
@@ -252,10 +295,6 @@ export function useAssistantAPI(args: {
           spoken = pickVariant(data.responses as string[], data.entryId)
         } else if (!spoken) {
           spoken = 'Posso ajudar nisso.'
-        }
-
-        if (activeClick) {
-          spoken = appendFollowUp(spoken)
         }
 
         setMode(data?.mode === 'economico' ? 'economico' : 'normal')
@@ -327,7 +366,7 @@ export function useAssistantAPI(args: {
     },
     [
       question, visibleElements, conversationHistory, clickedContext,
-      appendFollowUp, shouldClearClickedContext, processActions,
+      shouldClearClickedContext, processActions,
       continuousMode, useVoice, setCaption, setQuestion,
       setConversationHistory, setClickedContext, setHintMessage, sessionIdRef,
       isListeningRef, stopListeningRef,

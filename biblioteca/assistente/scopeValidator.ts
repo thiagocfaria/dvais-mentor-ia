@@ -34,6 +34,25 @@ export const SCOPE_KEYWORDS = [
   'produto', 'projeto', 'site', 'pagina', 'página', 'oferece', 'oferecem', 'ia', 'kb', 'base de conhecimento', 'llm',
 ] as const
 
+const CLICK_TARGET_DESCRIPTIONS: Record<string, string> = {
+  'hero-content':
+    'Área principal da home, onde o produto se apresenta e orienta o primeiro passo.',
+  'features-section':
+    'Seção que resume as capacidades reais do assistente, como voz opcional, contexto por toque ou clique e ações guiadas pela interface.',
+  'stats-section':
+    'Bloco com métricas e destaques visuais para reforçar o valor do produto.',
+  'analise-hero':
+    'Entrada da área de análise, voltada para leitura guiada e interpretação de dados.',
+  'seguranca-hero':
+    'Entrada da área de segurança, com foco em validação de ações e respostas mais previsíveis.',
+  'aprendizado-hero':
+    'Entrada da área de aprendizado contínuo, usada para explicar a jornada e a proposta educativa do produto.',
+  'login-card':
+    'Card da demonstração de login, usado como fluxo de interface e navegação.',
+  'cadastro-card':
+    'Card do fluxo de cadastro, que mostra o primeiro passo de entrada no produto.',
+}
+
 /**
  * Verifica se a pergunta sanitizada está no escopo do produto.
  */
@@ -46,7 +65,7 @@ export function isInScope(
   }
 ): boolean {
   if (hasClickContext) return true
-  if (options?.allowContextualFollowUp && options.topicHint) return true
+  if (options?.allowContextualFollowUp) return true
   const normalized = sanitizedQuestion.toLowerCase()
   return SCOPE_KEYWORDS.some((k) => normalized.includes(k))
 }
@@ -69,9 +88,10 @@ export function extractClickContext(contextRaw: Record<string, unknown>): {
     typeof contextRaw.clickedTag === 'string' ? contextRaw.clickedTag.slice(0, 32) : ''
   const safeClickedTargetId = (ALLOWED_IDS as readonly string[]).includes(clickedTargetId) ? clickedTargetId : ''
   const hasClickContext = Boolean(safeClickedTargetId || clickedText)
+  const clickedDescription = safeClickedTargetId ? CLICK_TARGET_DESCRIPTIONS[safeClickedTargetId] || '' : ''
 
   const clickContextBlock = hasClickContext
-    ? `\nCONTEXTO DO CLIQUE:\n- targetId: ${safeClickedTargetId || 'não mapeado'}\n- texto: ${clickedText || 'sem texto visível'}\n- elemento: ${clickedTag || 'desconhecido'}\n`
+    ? `\nCONTEXTO DO CLIQUE:\n- targetId: ${safeClickedTargetId || 'não mapeado'}\n- texto: ${clickedText || 'sem texto visível'}\n- elemento: ${clickedTag || 'desconhecido'}\n- descrição: ${clickedDescription || 'interprete o item pelo texto visível e pelo papel dele na página'}\n`
     : ''
 
   return { safeClickedTargetId, clickedText, clickedTag, hasClickContext, clickContextBlock }

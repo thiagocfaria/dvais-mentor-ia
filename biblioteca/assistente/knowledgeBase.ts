@@ -1,3 +1,5 @@
+import { isPracticalOpenQuestion } from '@/biblioteca/assistente/conversationSignals'
+
 export const KB_VERSION = 'kb_2025-01-27_v2'
 
 export type KBAction =
@@ -487,20 +489,29 @@ export const ENTRIES: KBEntry[] = [
       { term: 'começar', weight: 2 },
     ],
     responses: [
-      'Para se cadastrar, clique no botão "Começar Agora" na página inicial. Preencha seus dados e confirme seu email. É rápido e seguro!',
-      'O cadastro é simples: vá até o botão "Começar Agora", preencha o formulário e confirme seu email. Em poucos minutos você estará pronto.',
-      'Para criar sua conta, clique em "Começar Agora" no topo da página. Preencha seus dados e confirme o email. Comece a investir com orientação inteligente.',
+      'Para se cadastrar, abra "Começar Agora", preencha o formulário e confirme seu email. Depois disso, se quiser, eu te guio para o login.',
+      'O cadastro é guiado: vá até "Começar Agora", revise seus dados no formulário e confirme o email. Na sequência, você pode seguir para o login da demo.',
+      'Para criar sua conta nesta demonstração, abra "Começar Agora", preencha os campos e confirme o email. Se aparecer dúvida no meio do caminho, eu continuo o fluxo com você.',
     ],
     actions: [{ type: 'navigateRoute', route: '/cadastro', targetId: 'cadastro-card' }],
   },
   {
     id: 'login',
     title: 'Login',
-    keywords: ['login', 'entrar', 'acessar conta', 'fazer login', 'logar', 'minha conta'],
+    keywords: [
+      { term: 'login', weight: 6 },
+      { term: 'como funciona o login', weight: 7 },
+      { term: 'fazer login', weight: 6 },
+      { term: 'acessar conta', weight: 5 },
+      { term: 'entrar na conta', weight: 5 },
+      { term: 'logar', weight: 4 },
+      { term: 'minha conta', weight: 3 },
+      { term: 'entrar', weight: 2 },
+    ],
     responses: [
-      'Para entrar, clique em "Login" no topo. Na tela de acesso, informe seu email e senha.',
-      'Use o botão "Login" na página inicial. Eu te levo até lá e você entra com seus dados.',
-      'Quer acessar sua conta? Clique em "Login" no topo e preencha email e senha.',
+      'Para fazer login, abra "Login" no topo, preencha email e senha e confira as validações da tela antes de enviar.',
+      'O login nesta demo é um fluxo de interface: você abre a tela, revisa email e senha e envia o formulário. Se algo não passar, a própria página aponta o ajuste.',
+      'Quer entrar? Vá para "Login", preencha seus dados e use as mensagens da interface para revisar qualquer campo antes de tentar de novo.',
     ],
     actions: [{ type: 'navigateRoute', route: '/login', targetId: 'login-card' }],
   },
@@ -946,6 +957,12 @@ const OPEN_PRODUCT_GUIDE_RE =
 const OPEN_EXPLANATION_RE =
   /\b(me explica|explica melhor|explica mais|me fale|conta mais)\b/
 
+const PRACTICAL_DEMONSTRATIVE_RE =
+  /\b(isso|nisso|na pratica|na prática|depois|proximo passo|próximo passo)\b/
+
+const FAQ_ANCHOR_RE =
+  /\b(cadastro|login|seguranca|segurança|protecao|proteção|aprendizado|analise|análise|preco|preço|plano|planos|resultado|resultados|dvais|davi|mentor)\b/
+
 const SPECIFIC_FLOW_TERMS = new Set([
   'cadastro',
   'login',
@@ -1026,6 +1043,14 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
   }
 
   if (OPEN_PRODUCT_GUIDE_RE.test(q) && OPEN_EXPLANATION_RE.test(q) && !/\bo que e\b/.test(q)) {
+    return null
+  }
+
+  if (
+    isPracticalOpenQuestion(q) &&
+    PRACTICAL_DEMONSTRATIVE_RE.test(q) &&
+    !FAQ_ANCHOR_RE.test(q)
+  ) {
     return null
   }
   
