@@ -34,6 +34,13 @@ export const SCOPE_KEYWORDS = [
   'produto', 'projeto', 'site', 'pagina', 'página', 'oferece', 'oferecem', 'ia', 'kb', 'base de conhecimento', 'llm',
 ] as const
 
+// Saudações com word-boundary (evitar "oi" matchando dentro de "depois")
+const GREETING_PATTERNS = [
+  /\boi\b/i, /\bol[aá]\b/i, /\bbom dia\b/i, /\bboa tarde\b/i, /\bboa noite\b/i,
+  /\bopa\b/i, /\beai\b/i, /\beae\b/i, /\bhey\b/i, /\bsalve\b/i,
+  /\bobrigad[oa]\b/i, /\bvaleu\b/i, /\btchau\b/i, /\bat[ée] mais\b/i,
+]
+
 const CLICK_TARGET_DESCRIPTIONS: Record<string, string> = {
   'hero-content':
     'Área principal da home, onde o produto se apresenta e orienta o primeiro passo.',
@@ -67,7 +74,9 @@ export function isInScope(
   if (hasClickContext) return true
   if (options?.allowContextualFollowUp) return true
   const normalized = sanitizedQuestion.toLowerCase()
-  return SCOPE_KEYWORDS.some((k) => normalized.includes(k))
+  if (SCOPE_KEYWORDS.some((k) => normalized.includes(k))) return true
+  if (GREETING_PATTERNS.some((re) => re.test(normalized))) return true
+  return false
 }
 
 /**
