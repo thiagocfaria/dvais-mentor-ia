@@ -27,28 +27,49 @@ describe('askFromKnowledgeBase', () => {
   })
 })
 
-describe('KB product proposition quality', () => {
-  test('elevator_pitch menciona mentor/investimento, nao prototipo tecnico', () => {
+describe('KB papel de apresentadora/vendedora', () => {
+  test('elevator_pitch fala da plataforma em terceira pessoa, nao como se fosse o produto', () => {
     const result = askFromKnowledgeBase('o que é o DVAi$?')
     expect(result).not.toBeNull()
     const allResponses = result!.responses.join(' ')
+    // Deve falar "a plataforma" ou "o DVAi$", não "eu te guio"
+    expect(allResponses).toMatch(/plataforma|DVAi\$/i)
     expect(allResponses).not.toMatch(/protótipo técnico/)
-    expect(allResponses).toMatch(/mentor|investir|investimento/i)
   })
 
-  test('analise_em_tempo_real explica indicadores concretamente', () => {
+  test('analise_em_tempo_real descreve o que a plataforma vai fazer', () => {
     const result = askFromKnowledgeBase('análise em tempo real')
     expect(result?.entryId).toBe('analise_em_tempo_real')
     const allResponses = result!.responses.join(' ')
-    expect(allResponses).toMatch(/candlestick|volume|indicador|livro de ordens/i)
+    expect(allResponses).toMatch(/plataforma|IA/i)
   })
 
-  test('resultados menciona metricas concretas, nao frases genericas', () => {
-    const result = askFromKnowledgeBase('resultados e métricas')
-    expect(result?.entryId).toBe('resultados')
+  test('saudacao se apresenta como assistente do site, nao como mentor', () => {
+    const result = askFromKnowledgeBase('oi')
+    expect(result?.entryId).toBe('saudacao')
     const allResponses = result!.responses.join(' ')
-    expect(allResponses).not.toMatch(/comprovam a eficácia/)
-    expect(allResponses).toMatch(/análises|alertas|usuários/i)
+    expect(allResponses).toMatch(/apresentar|explicar|mostrar/i)
+  })
+
+  test('sobre_ia se descreve como assistente do site', () => {
+    const result = askFromKnowledgeBase('quem é você?')
+    expect(result?.entryId).toBe('sobre_ia')
+    const allResponses = result!.responses.join(' ')
+    expect(allResponses).toMatch(/assistente.*site|apresent/i)
+  })
+
+  test('cadastro menciona que é demonstracao', () => {
+    const result = askFromKnowledgeBase('quero fazer cadastro')
+    expect(result?.entryId).toBe('cadastro')
+    const allResponses = result!.responses.join(' ')
+    expect(allResponses).toMatch(/demo|demonstra/i)
+  })
+
+  test('login menciona que é demonstracao', () => {
+    const result = askFromKnowledgeBase('como fazer login')
+    expect(result?.entryId).toBe('login')
+    const allResponses = result!.responses.join(' ')
+    expect(allResponses).toMatch(/demo|demonstra/i)
   })
 })
 
@@ -68,8 +89,8 @@ describe('KB novas entradas de produto', () => {
     expect(result?.entryId).toBe('assistente_voz')
   })
 
-  test('retorna protecao_inteligente para "proteção inteligente"', () => {
-    const result = askFromKnowledgeBase('proteção inteligente')
+  test('retorna protecao_inteligente para "proteção inteligente segurança"', () => {
+    const result = askFromKnowledgeBase('proteção inteligente segurança')
     expect(result?.entryId).toBe('protecao_inteligente')
   })
 
@@ -78,11 +99,24 @@ describe('KB novas entradas de produto', () => {
     expect(result?.entryId).toBe('aprendizado_continuo')
   })
 
-  test('saudacao responde com nome Davi', () => {
-    const result = askFromKnowledgeBase('oi')
-    expect(result?.entryId).toBe('saudacao')
-    const allResponses = result!.responses.join(' ')
-    expect(allResponses).toMatch(/Davi/i)
+  test('retorna alertas_inteligentes para "alertas"', () => {
+    const result = askFromKnowledgeBase('alertas inteligentes')
+    expect(result?.entryId).toBe('alertas_inteligentes')
+  })
+
+  test('retorna ia_personalizada para "a IA se adapta"', () => {
+    const result = askFromKnowledgeBase('a plataforma se adapta ao meu perfil?')
+    expect(result?.entryId).toBe('ia_personalizada')
+  })
+
+  test('retorna nao_e_consultoria para "é consultoria"', () => {
+    const result = askFromKnowledgeBase('isso é consultoria financeira regulada?')
+    expect(result?.entryId).toBe('nao_e_consultoria')
+  })
+
+  test('retorna porque_cadastrar para "vale a pena"', () => {
+    const result = askFromKnowledgeBase('por que vale a pena se cadastrar?')
+    expect(result?.entryId).toBe('porque_cadastrar')
   })
 })
 
