@@ -57,7 +57,7 @@ export default function AssistenteWidget() {
         <div
           id="assistente-live-widget"
           aria-hidden={isSelectionOverlay}
-          className={`w-[calc(100vw-1rem)] max-w-none overflow-hidden rounded-[30px] border border-white/10 bg-black/75 shadow-2xl shadow-cyan-950/40 backdrop-blur-xl transition-all duration-200 sm:w-[420px] sm:max-w-[92vw] ${
+          className={`h-[min(720px,calc(100vh-5rem))] max-h-[calc(100vh-5rem)] w-[calc(100vw-1rem)] max-w-none overflow-hidden rounded-[30px] border border-white/10 bg-black/75 shadow-2xl shadow-cyan-950/40 backdrop-blur-xl transition-all duration-200 sm:h-[min(760px,calc(100vh-3rem))] sm:max-h-[min(760px,calc(100vh-3rem))] sm:w-[420px] sm:max-w-[92vw] ${
             isSelectionOverlay
               ? 'pointer-events-none invisible fixed -bottom-[200vh] left-0 top-auto h-px w-px overflow-hidden border-transparent opacity-0'
               : 'pointer-events-auto opacity-100'

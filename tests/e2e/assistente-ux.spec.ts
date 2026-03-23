@@ -68,8 +68,8 @@ test.describe('Assistente UX simplificada', () => {
     await page.getByRole('button', { name: /falar com davi/i }).click()
     await expect(page.getByPlaceholder(/pergunte algo/i)).toBeVisible()
 
-    // Fechar
-    await page.getByRole('button', { name: /fechar/i }).click()
+    // Fechar pelo toggle do widget, que é o controle estável da casca externa
+    await page.getByRole('button', { name: /ocultar davi/i }).click()
 
     // Reabrir
     await page.getByRole('button', { name: /falar com davi/i }).click()

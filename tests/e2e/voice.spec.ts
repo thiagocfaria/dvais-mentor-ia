@@ -113,9 +113,7 @@ test.describe('Pipeline de voz', () => {
 
     await page.goto('/', { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: /falar com davi/i }).click()
-    await page.getByRole('button', { name: /ativar assistente/i }).click()
-    await page.getByRole('button', { name: /voz manual/i }).click()
-    await page.getByPlaceholder(/escreva sua pergunta/i).fill('como funciona o cadastro?')
+    await page.getByPlaceholder(/pergunte algo/i).fill('como funciona o cadastro?')
     await page.getByRole('button', { name: /enviar/i }).click()
 
     await expect(page.getByText(/o assistente está falando/i)).toBeVisible()
@@ -137,12 +135,19 @@ test.describe('Pipeline de voz', () => {
 
     await page.goto('/', { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: /falar com davi/i }).click()
-    await page.getByRole('button', { name: /ativar assistente/i }).click()
-    await page.getByRole('button', { name: /voz manual/i }).click()
-    await page.getByRole('button', { name: /microfone/i }).click()
+    await page.getByRole('button', { name: /tocar para falar/i }).click()
     await page.evaluate(() => (window as Window & { __emitSpeech?: (text: string) => void }).__emitSpeech?.('como funciona o login'))
 
-    await expect(page.getByText(/o assistente está falando/i)).toBeVisible()
+    await expect
+      .poll(async () =>
+        page.evaluate(
+          () =>
+            ((window as Window & { __speechCalls?: Array<{ text?: string; type: string }> }).__speechCalls ?? []).some(
+              call => call.type === 'speak' && /entendi sua pergunta e respondi por voz/i.test(call.text ?? '')
+            )
+        )
+      )
+      .toBe(true)
     await expect(page.getByText(/entendi sua pergunta e respondi por voz/i)).toBeVisible()
   })
 
@@ -161,9 +166,7 @@ test.describe('Pipeline de voz', () => {
 
     await page.goto('/', { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: /falar com davi/i }).click()
-    await page.getByRole('button', { name: /ativar assistente/i }).click()
-    await page.getByRole('button', { name: /voz manual/i }).click()
-    await page.getByPlaceholder(/escreva sua pergunta/i).fill('teste de voz')
+    await page.getByPlaceholder(/pergunte algo/i).fill('teste de voz')
     await page.getByRole('button', { name: /enviar/i }).click()
 
     await expect(page.getByRole('button', { name: /ouvir resposta/i })).toBeVisible()
@@ -199,14 +202,12 @@ test.describe('Pipeline de voz', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/', { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: /falar com davi/i }).click()
-    await page.getByRole('button', { name: /ativar assistente/i }).click()
-    await page.getByRole('button', { name: /voz manual/i }).click()
     await expect(page.getByRole('button', { name: /tocar para falar/i })).toBeVisible()
     await page.getByRole('button', { name: /tocar para falar/i }).click()
     await page.evaluate(() => (window as Window & { __emitSpeech?: (text: string) => void }).__emitSpeech?.('como funciona o cadastro'))
 
     await expect(page.getByText(/o assistente está falando/i)).toBeVisible()
     await expect(page.getByText(/resposta em voz no mobile/i)).toBeVisible()
-    await expect(page.getByPlaceholder(/escreva sua pergunta/i)).toBeVisible()
+    await expect(page.getByPlaceholder(/pergunte algo/i)).toBeVisible()
   })
 })

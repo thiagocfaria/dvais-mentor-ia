@@ -252,11 +252,24 @@ describe('KB novas entradas v2', () => {
   test('retorna compatibilidade_navegador para "funciona no celular"', () => {
     const result = askFromKnowledgeBase('funciona no celular?')
     expect(result?.entryId).toBe('compatibilidade_navegador')
+    const combined = result?.responses.join(' ') || ''
+    expect(combined).toMatch(/texto \+ toque/i)
+    expect(combined).toMatch(/navegador|sem instalar|sem app/i)
   })
 
   test('retorna compatibilidade_navegador para "tem app"', () => {
     const result = askFromKnowledgeBase('tem aplicativo pra baixar?')
     expect(result?.entryId).toBe('compatibilidade_navegador')
+    const combined = result?.responses.join(' ') || ''
+    expect(combined).toMatch(/sem (precisar )?instalar|sem app|navegador/i)
+  })
+
+  test('retorna assistente_voz com fluxo manual previsível', () => {
+    const result = askFromKnowledgeBase('como usar a voz?')
+    expect(result?.entryId).toBe('assistente_voz')
+    const combined = result?.responses.join(' ') || ''
+    expect(combined).toMatch(/tocar para falar|ouvir resposta/i)
+    expect(combined).not.toMatch(/reabre sozinho|microfone volta|continuo ouvindo|volta a ouvir automaticamente/i)
   })
 
   test('retorna tempo_aprendizado para "quanto tempo leva"', () => {

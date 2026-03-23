@@ -685,9 +685,9 @@ export const ENTRIES: KBEntry[] = [
       { term: 'falar por voz', weight: 6 },
     ],
     responses: [
-      'Para conversar por voz: clique em "Falar com Davi" e depois em "Conversa por voz". O microfone abre e você fala naturalmente — eu respondo por voz e texto, e o microfone reabre sozinho para a próxima pergunta. É uma conversa contínua, sem precisar clicar de novo. Na plataforma real, a IA do DVAi$ vai funcionar da mesma forma.',
-      'Quer testar a voz? Abra o chat e toque em "Conversa por voz". Fale sua pergunta, eu respondo, e o microfone volta a ouvir automaticamente. Para parar, é só tocar de novo. Essa é uma demonstração de como o DVAi$ vai interagir com você.',
-      'A conversa por voz funciona como um bate-papo natural: você ativa o microfone uma vez e pode ir perguntando — eu respondo e continuo ouvindo. Para encerrar a voz, toque em "Parar conversa por voz". Essa interação é uma amostra do que a plataforma completa vai oferecer.',
+      'Para testar a voz, abra o chat e use "Tocar para falar". Você faz uma pergunta por vez, eu respondo em texto e tento falar a resposta quando o navegador permitir.',
+      'O caminho mais previsível aqui é: abrir o chat, tocar em "Tocar para falar", falar sua pergunta e, se o áudio automático falhar, usar "Ouvir resposta". O texto continua disponível o tempo todo.',
+      'Na web, a voz depende do navegador e das permissões. Por isso o Davi funciona com voz manual e fallback em texto, em vez de prometer conversa contínua em qualquer dispositivo.',
     ],
   },
   {
@@ -977,9 +977,9 @@ export const ENTRIES: KBEntry[] = [
       { term: 'instalar', weight: 3 },
     ],
     responses: [
-      'O DVAi$ funciona direto no navegador, sem precisar instalar nada. Funciona em celular e computador — Chrome, Safari, Firefox, Edge. A experiência é responsiva e adaptada ao seu dispositivo.',
-      'Funciona em qualquer dispositivo com navegador moderno: celular (Android e iPhone) e computador. Não precisa baixar app — é tudo pelo navegador, com voz e texto.',
-      'A plataforma roda no navegador, sem instalação. Funciona bem em Chrome, Safari e Firefox, tanto no celular quanto no desktop. Quer experimentar agora?',
+      'O DVAi$ funciona direto no navegador, sem instalar app. No celular, o caminho mais estável é Texto + toque; a voz pode variar conforme permissão, autoplay e compatibilidade do navegador.',
+      'Você pode usar a plataforma no celular e no computador, sem baixar aplicativo. Em mobile, recomendamos Texto + toque e "Tocar para falar" só quando o navegador estiver estável.',
+      'A plataforma roda no navegador em Android, iPhone e desktop. Para uma experiência mais previsível, use texto como base e trate a voz como opcional conforme o navegador permitir.',
     ],
   },
   {

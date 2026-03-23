@@ -455,7 +455,9 @@ export function useAssistantAPI(args: {
     setIsThinking,
     abortControllerRef,
     diagnosticMessage,
+    setDiagnosticMessage,
     voiceIssue,
+    setVoiceIssue,
     canReplayAudio: !!audioReplayText,
     replayAudio,
   }

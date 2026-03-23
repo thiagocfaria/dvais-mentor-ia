@@ -2,24 +2,23 @@
 
 ## Objetivo
 
-Apresentar o produto como um assistente contextual com três caminhos compatíveis entre si:
+Apresentar o produto como um assistente contextual com dois caminhos estáveis e um fallback claro:
 
 - texto;
 - voz manual (`push-to-talk`);
-- conversa contínua apenas em desktop/navegadores mais estáveis.
 
 O assistente usa contexto de clique, responde em texto, tenta falar a resposta quando a voz estiver ativa e mantém fallback claro quando o navegador bloquear áudio ou não suportar voz.
 
 ## Fluxo atual
 
 1. **Ativação**
-   - o usuário escolhe `Texto + toque`, `Voz manual` ou `Conversa contínua`;
-   - no mobile, o caminho recomendado continua sendo `Texto + toque`.
+   - o usuário abre `Falar com Davi`;
+   - o chat já aparece pronto para uso, com texto visível e `Tocar para falar` como ação de voz.
 
 2. **Captura de voz**
-   - `Voz manual`: o usuário toca em `Microfone` ou `Tocar para falar`;
+   - o usuário toca em `Tocar para falar`;
    - ao receber transcript final útil, a pergunta é enviada automaticamente;
-   - `Conversa contínua`: a escuta reinicia apenas quando a captura terminou sem envio ou depois da resposta, sem restart duplo.
+   - a captura é manual e previsível, uma pergunta por vez.
 
 3. **Resposta**
    - a resposta sempre aparece no chat;
@@ -44,7 +43,8 @@ O assistente usa contexto de clique, responde em texto, tenta falar a resposta q
 - o chat em texto continua disponível mesmo quando a voz falha;
 - `Ouvir resposta` tenta novamente a fala com gesto explícito do usuário;
 - `intro`, `guia rápido` e `navegação` não devem cortar a resposta principal do assistente;
-- o mobile continua com `push-to-talk` manual, nunca como conversa contínua padrão.
+- o mobile continua com `push-to-talk` manual;
+- a experiência padrão de produção não promete conversa contínua no navegador.
 
 ## Limitações reais da plataforma
 

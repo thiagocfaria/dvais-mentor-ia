@@ -71,7 +71,7 @@ export default function Assistente({
 
   const liveHintFallback = selectionMode
     ? 'Toque em um item da página.'
-    : 'Pronto para conversar.'
+    : 'Pergunte em texto ou use Tocar para falar.'
 
   const sessionIdRef = useAssistantSession()
   const visibleElements = useVisibleElements(isActive)
@@ -109,29 +109,6 @@ export default function Assistente({
   const isTTSSpeakingRef = useRef(false)
 
   const {
-    isListening,
-    setIsListening,
-    toggleListening,
-    startContinuousListeningRef,
-    stopListening,
-    cleanupVoice,
-  } = useLiveVoice({
-    hasSTT,
-    hasTTS,
-    isActiveRef,
-    continuousModeRef,
-    isThinkingRef,
-    isTTSSpeakingRef,
-    handleAskRef: sharedHandleAskRef,
-    setQuestion,
-    setCaption,
-    setContinuousMode,
-  })
-
-  useEffect(() => { isListeningRef.current = isListening }, [isListening])
-  useEffect(() => { stopListeningRef.current = stopListening }, [stopListening])
-
-  const {
     handleAsk,
     handleAskRef,
     isThinking,
@@ -143,7 +120,9 @@ export default function Assistente({
     setMode,
     abortControllerRef,
     diagnosticMessage,
+    setDiagnosticMessage,
     voiceIssue,
+    setVoiceIssue,
     canReplayAudio,
     replayAudio,
   } = useAssistantAPI({
@@ -163,6 +142,31 @@ export default function Assistente({
     setQuestion,
     setCaption,
   })
+
+  const {
+    isListening,
+    setIsListening,
+    toggleListening,
+    startContinuousListeningRef,
+    stopListening,
+    cleanupVoice,
+  } = useLiveVoice({
+    hasSTT,
+    hasTTS,
+    isActiveRef,
+    continuousModeRef,
+    isThinkingRef,
+    isTTSSpeakingRef,
+    handleAskRef: sharedHandleAskRef,
+    setQuestion,
+    setCaption,
+    setContinuousMode,
+    onVoiceIssue: setVoiceIssue,
+    onDiagnosticMessage: setDiagnosticMessage,
+  })
+
+  useEffect(() => { isListeningRef.current = isListening }, [isListening])
+  useEffect(() => { stopListeningRef.current = stopListening }, [stopListening])
 
   useEffect(() => { sharedHandleAskRef.current = handleAsk }, [handleAsk])
   useEffect(() => { isActiveRef.current = isActive }, [isActive])
@@ -307,7 +311,7 @@ export default function Assistente({
   return (
     <div
       ref={assistantRootRef}
-      className={`relative z-20 flex h-full min-h-[540px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-black/65 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl ${
+      className={`relative z-20 flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-black/65 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl ${
         shouldUnlockSelectionSurface ? 'opacity-70' : ''
       }`}
     >
@@ -320,7 +324,6 @@ export default function Assistente({
             continuousMode={continuousMode}
             selectionMode={selectionMode}
             speechAvailable={speechAvailable}
-            isCoarsePointer={isCoarsePointer}
             onDeactivate={deactivate}
           />
           <ChatArea
@@ -359,7 +362,6 @@ export default function Assistente({
             replayAudio={replayAudio}
             diagnosticMessage={diagnosticMessage}
             voiceIssue={voiceIssue}
-            isCoarsePointer={isCoarsePointer}
           />
           </>
         )}

@@ -28,6 +28,7 @@ export type SpeechRecognitionCallbacks = {
 
 export type SpeechRecognitionOptions = {
   silenceTimeoutMs?: number
+  continuous?: boolean
 }
 
 let recognitionInstance: SpeechRecognition | null = null
@@ -103,7 +104,7 @@ export async function startSpeechRecognition(
 
   const recognition = new Recognition()
   recognition.lang = 'pt-BR'
-  recognition.continuous = true
+  recognition.continuous = options?.continuous ?? false
   recognition.interimResults = true
 
   let finalTranscript = ''

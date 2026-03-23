@@ -25,7 +25,6 @@ export type InputAreaProps = {
   replayAudio: () => void
   diagnosticMessage: string
   voiceIssue: VoiceIssue
-  isCoarsePointer: boolean
 }
 
 function runtimeCopy(runtimeState: VoiceRuntimeState, continuousMode: boolean) {
@@ -33,7 +32,7 @@ function runtimeCopy(runtimeState: VoiceRuntimeState, continuousMode: boolean) {
   if (runtimeState === 'thinking') return 'Consultando a IA'
   if (runtimeState === 'speaking') return 'Reproduzindo resposta'
   if (runtimeState === 'error') return 'Falha temporária'
-  return continuousMode ? 'Conversa por voz ativa' : 'Pronto para conversar'
+  return continuousMode ? 'Conversa por voz ativa' : 'Pronto'
 }
 
 export function InputArea({
@@ -59,7 +58,6 @@ export function InputArea({
   replayAudio,
   diagnosticMessage,
   voiceIssue,
-  isCoarsePointer,
 }: InputAreaProps) {
   return (
     <div className="border-t border-white/10 bg-slate-950/70 p-4">
@@ -127,7 +125,7 @@ export function InputArea({
                 onClick={toggleListening}
                 disabled={isThinking}
               >
-                {isListening ? 'Parar conversa por voz' : isCoarsePointer ? 'Iniciar conversa por voz' : 'Conversa por voz'}
+                {isListening ? 'Parar captura' : 'Tocar para falar'}
               </button>
             )}
 

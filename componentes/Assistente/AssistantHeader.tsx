@@ -9,14 +9,13 @@ export type AssistantHeaderProps = {
   continuousMode: boolean
   selectionMode: boolean
   speechAvailable: boolean
-  isCoarsePointer: boolean
   onDeactivate: () => void
 }
 
 function statusLabel(
   runtimeState: VoiceRuntimeState,
   voiceIssue: VoiceIssue,
-  continuousMode: boolean,
+  _continuousMode: boolean,
   selectionMode: boolean
 ) {
   if (voiceIssue === 'autoplay_blocked') return 'Áudio bloqueado'
@@ -27,7 +26,7 @@ function statusLabel(
   if (runtimeState === 'speaking') return 'Falando'
   if (runtimeState === 'error') return 'Erro'
   if (selectionMode) return 'Selecionando'
-  return continuousMode ? 'Live pronto' : 'Pronto'
+  return 'Pronto'
 }
 
 export function AssistantHeader({
@@ -36,7 +35,6 @@ export function AssistantHeader({
   continuousMode,
   selectionMode: selectionEnabled,
   speechAvailable,
-  isCoarsePointer,
   onDeactivate,
 }: AssistantHeaderProps) {
   return (
@@ -48,7 +46,7 @@ export function AssistantHeader({
               Davi Assistente
             </p>
             <p className="mt-1 text-sm text-white">
-              Chat contextual com texto, voz opcional e seleção por toque.
+              Chat contextual com texto, voz manual e seleção por toque.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -56,13 +54,8 @@ export function AssistantHeader({
               {statusLabel(runtimeState, voiceIssue, continuousMode, selectionEnabled)}
             </span>
             <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200">
-              {speechAvailable ? (isCoarsePointer ? 'Voz manual' : 'Voz disponível') : 'Somente texto'}
+              {speechAvailable ? 'Voz manual' : 'Somente texto'}
             </span>
-            {continuousMode && (
-              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] text-emerald-100">
-                Conversa contínua
-              </span>
-            )}
           </div>
         </div>
 
@@ -93,7 +86,7 @@ export function AssistantHeader({
           </div>
         ) : (
           <div className="px-4 py-2 text-xs text-slate-400">
-            Pergunte em texto ou use o microfone quando o navegador suportar bem a captura.
+            Pergunte em texto ou use Tocar para falar quando quiser falar com o assistente.
           </div>
         )}
       </div>
