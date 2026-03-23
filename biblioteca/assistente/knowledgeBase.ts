@@ -1191,6 +1191,19 @@ function fuzzyMatch(query: string, keyword: string, threshold: number = 2): bool
   return distance <= threshold
 }
 
+// Stopwords do português — palavras que NUNCA devem gerar score sozinhas
+// Essas palavras são comuns demais e causam falsos positivos graves
+// Stopwords ESTRITAS — apenas artigos, preposições e pronomes curtos
+// NÃO incluir palavras que iniciam perguntas comuns (como, qual, quem, por que)
+const STOPWORDS = new Set([
+  'o', 'a', 'e', 'de', 'do', 'da', 'em', 'um', 'uma', 'os', 'as',
+  'no', 'na', 'ao', 'ou', 'me', 'te', 'se', 'que',
+  'dos', 'das', 'nos', 'nas', 'aos',
+  'eu', 'ele', 'ela', 'esse', 'essa', 'este', 'esta',
+  'meu', 'minha', 'seu', 'sua',
+  'como', 'por', 'para', 'pra', 'com',
+])
+
 // Índice invertido para busca rápida
 // Armazena: term -> Map<entryId, maxWeight>
 const keywordIndex = new Map<string, Map<string, number>>()
@@ -1203,6 +1216,31 @@ function addToIndex(term: string, entryId: string, weight: number) {
   const entryWeights = keywordIndex.get(term)!
   // Usar peso máximo se já existir
   entryWeights.set(entryId, Math.max(entryWeights.get(entryId) || 0, weight))
+}
+
+// N-grams genéricos que NÃO devem ser indexados nem gerar score
+// Estes são padrões de pergunta comuns que aparecem em QUALQUER pergunta
+// e causam falsos positivos massivos quando indexados
+const GENERIC_NGRAMS = new Set([
+  'o que', 'que e', 'o que e', 'o que e o', 'o que e a',
+  'que e o', 'que e a', 'e o', 'e a', 'e o que',
+  'como funciona', 'como funciona o', 'como funciona a',
+  'como funciona as', 'como funciona os',
+  'funciona o', 'funciona a', 'funciona as', 'funciona os',
+  'como e', 'como e o', 'como e a', 'como que',
+  'me explica', 'me fala', 'me conta', 'me mostra',
+  'fala sobre', 'conta sobre',
+  'qual e', 'qual e o', 'qual e a', 'qual o', 'qual a',
+  'por que', 'por que eu', 'por que o', 'por que a',
+  'pra que', 'para que',
+])
+
+// Verifica se um n-gram é genérico demais para indexar
+function isGenericNGram(ngram: string): boolean {
+  if (GENERIC_NGRAMS.has(ngram)) return true
+  // Também filtrar se composto APENAS de stopwords
+  const words = ngram.split(/\s+/)
+  return words.every(w => STOPWORDS.has(w))
 }
 
 function buildKeywordIndex() {
@@ -1218,21 +1256,22 @@ function buildKeywordIndex() {
       // Indexar palavra/frase completa (com peso)
       addToIndex(normalized, entry.id, weight)
 
-      // Indexar também palavras individuais (para busca flexível)
-      // CRÍTICO: Incluir TODAS as palavras, mesmo pequenas, para n-grams funcionarem
-      // Peso reduzido para palavras individuais: 50% do original
+      // Indexar palavras individuais (para busca flexível)
+      // IGNORAR stopwords individuais — elas só devem contar em frases compostas com termos substantivos
       const words = normalized.split(/\s+/).filter(w => w.length > 0)
       for (const word of words) {
+        if (STOPWORDS.has(word)) continue // Pular stopwords individuais
+        if (word.length < 3) continue // Pular palavras muito curtas (ex: "oi" como parte de frase)
         const wordWeight = Math.max(1, Math.floor(weight * 0.5))
         addToIndex(word, entry.id, wordWeight)
       }
 
-      // Indexar bigrams, trigrams e 4-grams (para frases como "o que é", "me explica o que")
-      // Usar TODAS as palavras, não apenas as > 2 caracteres
-      // Peso reduzido para n-grams: 80% do original
+      // Indexar bigrams, trigrams e 4-grams (para frases como "proteção inteligente", "análise em tempo real")
+      // IGNORAR n-grams genéricos que causam falsos positivos (ex: "o que e", "como funciona")
       for (let n = 2; n <= Math.min(4, words.length); n++) {
         const ngrams = generateNGrams(normalized, n)
         for (const ngram of ngrams) {
+          if (isGenericNGram(ngram)) continue // Pular n-grams genéricos
           const ngramWeight = Math.max(1, Math.floor(weight * 0.8))
           addToIndex(ngram, entry.id, ngramWeight)
         }
@@ -1323,18 +1362,24 @@ function extractSearchTerms(normalized: string): string[] {
   const terms = new Set<string>()
   const words = normalized.split(/\s+/).filter(w => w.length > 0)
 
-  // Adicionar palavras individuais (incluindo palavras pequenas para n-grams)
+  // Adicionar palavras individuais (exceto stopwords — elas não devem gerar score sozinhas)
+  // Exceção: se a pergunta inteira é uma só palavra (ex: "oi"), incluir sempre
+  const isSingleWord = words.length === 1
   words.forEach(word => {
-    terms.add(word) // Incluir TODAS as palavras, mesmo pequenas
+    if (isSingleWord || !STOPWORDS.has(word)) {
+      terms.add(word)
+    }
   })
 
   // Gerar n-grams de 2 a 4 palavras para capturar frases compostas
-  // Exemplo: "me explica o que vocês fazem" → ["me explica", "explica o", "o que", "que vocês", "vocês fazem"]
-  //          → ["me explica o", "explica o que", "o que vocês", "que vocês fazem"]
-  //          → ["me explica o que", "explica o que vocês", "o que vocês fazem"]
+  // Filtrar n-grams genéricos (ex: "o que e", "como funciona") para não gerar score falso
   for (let n = 2; n <= Math.min(4, words.length); n++) {
     const ngrams = generateNGrams(normalized, n)
-    ngrams.forEach(ngram => terms.add(ngram))
+    ngrams.forEach(ngram => {
+      if (!isGenericNGram(ngram)) {
+        terms.add(ngram)
+      }
+    })
   }
 
   // Adicionar a string completa (para matching exato de frases)
@@ -1353,15 +1398,28 @@ type CandidateMeta = {
 const GENERIC_MATCH_TERMS = new Set([
   'o que e',
   'que e',
+  'o que e o',
+  'o que e a',
   'como funciona',
+  'como funciona o',
+  'como funciona a',
+  'funciona o',
+  'funciona a',
+  'funciona as',
+  'funciona os',
+  'funciona',
   'como usar',
   'funcionamento',
   'plataforma',
   'isso',
   'ajuda',
+  'fala',
   'mostrar',
   'ver',
   'guia',
+  'me explica',
+  'fala sobre',
+  'conta sobre',
 ])
 
 const PRODUCT_IDENTITY_TERMS = new Set([
@@ -1455,6 +1513,16 @@ function buildKBReason(entryId: string, confidence: number, matchedTerms: string
   }
   const basis = matchedTerms.slice(0, 3).join(', ')
   return `entry=${entryId}; confidence=${confidence}; matched=${basis}`
+}
+
+function hasSubstantiveKBMatch(matchedTerms: string[], words: string[]): boolean {
+  const isSingleWordQuery = words.length === 1
+  return matchedTerms.some(term => {
+    if (GENERIC_MATCH_TERMS.has(term)) return false
+    const termWords = term.split(/\s+/)
+    if (isSingleWordQuery && termWords.length === 1 && termWords[0] === words[0]) return true
+    return termWords.some(w => !STOPWORDS.has(w) && w.length > 2)
+  })
 }
 
 // Opção A: Retorna entryId e responses (client escolhe variação)
@@ -1661,10 +1729,13 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
   }
 
   // 3. Busca por palavras-chave importantes (boost para termos como "o que é", "como funciona")
+  // IMPORTANTE: usar word boundary para evitar "que e" matchando dentro de "que eu"
   const importantPhrases = ['o que e', 'que e', 'como funciona', 'como usar', 'o que sao']
   const hasSpecificFlowTerm = words.some(word => SPECIFIC_FLOW_TERMS.has(word))
+  const queryContentWords = words.filter(word => !STOPWORDS.has(word))
   for (const phrase of importantPhrases) {
-    if (q.includes(phrase)) {
+    const phraseRe = new RegExp(`\\b${phrase.replace(/\s+/g, '\\s+')}\\b`)
+    if (phraseRe.test(q)) {
       // Boost para entries que têm essas frases nas keywords (usar peso da keyword)
       for (const entry of ENTRIES) {
         if (entry.id === 'elevator_pitch' && hasSpecificFlowTerm) {
@@ -1673,6 +1744,13 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
         const expandedKeywords = expandKeywords(entry.keywords)
         for (const { term, weight } of expandedKeywords) {
           const normalizedKeyword = normalizeQuestion(term)
+          const keywordWords = normalizedKeyword.split(/\s+/)
+          const hasContentOverlap =
+            queryContentWords.length === 0 ||
+            queryContentWords.some(word => keywordWords.includes(word))
+
+          if (!hasContentOverlap) continue
+
           if (normalizedKeyword.includes(phrase) || phrase.includes(normalizedKeyword)) {
             // Boost baseado no peso da keyword (mínimo 5 para frases importantes)
             const boost = Math.max(5, weight * 2)
@@ -1684,18 +1762,28 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
     }
   }
 
-  // Encontrar melhor match (maior score)
+  // Encontrar melhor match priorizando candidatos com match substantivo.
+  // Isso evita que frases genéricas como "como funciona" ganhem da entry certa.
   let bestEntry: KBEntry | null = null
   let bestScore = 0
+  const rankedCandidates = Array.from(candidateIds.entries()).sort((a, b) => b[1] - a[1])
+  const fallbackCandidate = rankedCandidates[0] ?? null
 
-  for (const [entryId, score] of candidateIds.entries()) {
-    if (score > bestScore) {
-      const entry = ENTRIES.find(e => e.id === entryId)
-      if (entry) {
-        bestEntry = entry
-        bestScore = score
-      }
-    }
+  for (const [entryId, score] of rankedCandidates) {
+    const entry = ENTRIES.find(e => e.id === entryId)
+    if (!entry) continue
+    const meta = candidateMatches.get(entryId)
+    const matchedTerms = Array.from(meta?.matchedTerms ?? [])
+    if (!hasSubstantiveKBMatch(matchedTerms, words)) continue
+    bestEntry = entry
+    bestScore = score
+    break
+  }
+
+  if (!bestEntry && fallbackCandidate) {
+    const [entryId, score] = fallbackCandidate
+    bestEntry = ENTRIES.find(e => e.id === entryId) ?? null
+    bestScore = score
   }
 
   // Se ainda não encontrou, fazer busca mais permissiva (qualquer palavra em comum)
@@ -1729,6 +1817,17 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
 
   const bestMeta = candidateMatches.get(bestEntry.id)
   const matchedTerms = Array.from(bestMeta?.matchedTerms ?? [])
+
+  // PROTEÇÃO ANTI-STOPWORD: Se TODOS os matchedTerms são stopwords ou genéricos,
+  // o match é falso positivo — mandar pro LLM em vez de retornar resposta errada.
+  // Ex: "me fala uma receita de bolo" matchando "cadastro" por "me", "uma", "de"
+  const hasSubstantiveMatch = hasSubstantiveKBMatch(matchedTerms, words)
+
+  if (!hasSubstantiveMatch && matchedTerms.length > 0) {
+    setCachedKBResult(q, null)
+    return null
+  }
+
   const confidence = computeKBConfidence(bestEntry.id, bestScore, matchedTerms, words)
   const reason = buildKBReason(bestEntry.id, confidence, matchedTerms)
 

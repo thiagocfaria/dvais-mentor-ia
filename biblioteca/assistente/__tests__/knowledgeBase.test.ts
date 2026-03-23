@@ -133,6 +133,26 @@ describe('KB forbidden topics', () => {
 })
 
 describe('KB correções de matching (cenários que falhavam)', () => {
+  test('o que é a proteção inteligente retorna protecao_inteligente', () => {
+    const result = askFromKnowledgeBase('o que é a proteção inteligente?')
+    expect(result?.entryId).toBe('protecao_inteligente')
+  })
+
+  test('como funciona o aprendizado contínuo retorna aprendizado_continuo', () => {
+    const result = askFromKnowledgeBase('como funciona o aprendizado contínuo?')
+    expect(result?.entryId).toBe('aprendizado_continuo')
+  })
+
+  test('o que é o guia financeiro retorna guia_financeiro', () => {
+    const result = askFromKnowledgeBase('o que é o guia financeiro?')
+    expect(result?.entryId).toBe('guia_financeiro')
+  })
+
+  test('pergunta fora de escopo não cai em FAQ por stopword', () => {
+    const result = askFromKnowledgeBase('me fala uma receita de bolo')
+    expect(result).toBeNull()
+  })
+
   test('proteção inteligente NÃO retorna cadastro', () => {
     const result = askFromKnowledgeBase('como funciona a proteção inteligente?')
     expect(result?.entryId).toBe('protecao_inteligente')
