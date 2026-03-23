@@ -1,8 +1,13 @@
-import { askFromKnowledgeBase } from '../knowledgeBase'
+import { beforeEach } from 'vitest'
+import { askFromKnowledgeBase, clearKnowledgeBaseCaches } from '../knowledgeBase'
+
+beforeEach(() => {
+  clearKnowledgeBaseCaches()
+})
 
 describe('askFromKnowledgeBase', () => {
   test('retorna elevator_pitch para pergunta sobre o DVAi$', () => {
-    const result = askFromKnowledgeBase('o que é o DVAi$?')
+    const result = askFromKnowledgeBase('o que e o dvais?')
     expect(result?.entryId).toBe('elevator_pitch')
   })
 
@@ -270,6 +275,22 @@ describe('KB novas entradas v2', () => {
     const combined = result?.responses.join(' ') || ''
     expect(combined).toMatch(/tocar para falar|ouvir resposta/i)
     expect(combined).not.toMatch(/reabre sozinho|microfone volta|continuo ouvindo|volta a ouvir automaticamente/i)
+  })
+
+  test('o que vocês oferecem não empurra WhatsApp como resposta principal', () => {
+    const result = askFromKnowledgeBase('o que vocês oferecem?')
+    expect(result?.entryId).toBe('o_que_posso_fazer')
+    const combined = result?.responses.join(' ') || ''
+    expect(combined).toMatch(/an[aá]lise|prote[cç][aã]o|aprendizado/i)
+    expect(combined).not.toMatch(/whatsapp/i)
+  })
+
+  test('suporte fala em contato do projeto, não em canal externo como resposta principal', () => {
+    const result = askFromKnowledgeBase('preciso de ajuda com a plataforma')
+    expect(result?.entryId).toBe('suporte')
+    const combined = result?.responses.join(' ') || ''
+    expect(combined).toMatch(/contato/i)
+    expect(combined).not.toMatch(/whatsapp/i)
   })
 
   test('retorna tempo_aprendizado para "quanto tempo leva"', () => {

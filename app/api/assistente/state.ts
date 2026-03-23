@@ -1,3 +1,5 @@
+import { KB_VERSION as KNOWLEDGE_BASE_VERSION } from '@/biblioteca/assistente/knowledgeBase'
+
 export type AssistantResponse = {
   spokenText?: string
   onScreenTopic?: string
@@ -26,7 +28,11 @@ export type CircuitFailure = { timestamps: number[]; blockedUntil?: number }
 export type CircuitState = { failures: Map<string, CircuitFailure> }
 
 export const MAX_CACHE_SIZE = 500
-export const KB_VERSION = '1.0.0'
+export const KB_VERSION = KNOWLEDGE_BASE_VERSION
+export const BUILD_INFO = {
+  gitSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || null,
+  buildId: process.env.VERCEL_DEPLOYMENT_ID || process.env.BUILD_ID || null,
+}
 
 /**
  * Cache em memória (fallback)

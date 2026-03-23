@@ -18,6 +18,10 @@ let llmHealthState:
   | null = null
 let MAX_CACHE_SIZE = 500
 let KB_VERSION = '1.0.0'
+let BUILD_INFO: { gitSha: string | null; buildId: string | null } = {
+  gitSha: null,
+  buildId: null,
+}
 
 async function loadAssistenteMetrics() {
   if (cache && circuit) return
@@ -28,6 +32,7 @@ async function loadAssistenteMetrics() {
     llmHealthState = (stateModule.llmHealth as typeof llmHealthState) || null
     MAX_CACHE_SIZE = stateModule.MAX_CACHE_SIZE || 500
     KB_VERSION = stateModule.KB_VERSION || '1.0.0'
+    BUILD_INFO = stateModule.BUILD_INFO || BUILD_INFO
   } catch {
     // Em ambiente serverless, pode não conseguir importar
   }
@@ -89,6 +94,13 @@ export async function GET() {
         limit: Math.round(memory.heapTotal / 1024 / 1024),
       },
       kbVersion: KB_VERSION,
+      build: {
+        gitSha: BUILD_INFO.gitSha || process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || null,
+        gitShortSha:
+          (BUILD_INFO.gitSha || process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || null)?.slice(0, 7) ||
+          null,
+        buildId: BUILD_INFO.buildId || process.env.VERCEL_DEPLOYMENT_ID || process.env.BUILD_ID || null,
+      },
       llm: {
         configured: llmConfigured,
         status: llmStatus,

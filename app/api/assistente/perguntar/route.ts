@@ -29,6 +29,9 @@ const GENERIC_CLICK_QUESTION_RE =
 const ASSISTANT_TECHNICAL_RE =
   /\b(assistente|chat|voz|microfone|mobile|celular|audio|áudio|toque|clique|contexto|click context|resposta|acao|ações|navega[cç][aã]o|cache|rate limit|circuit breaker|quota|token|api)\b/i
 
+const ASSISTANT_USAGE_FAQ_RE =
+  /\b(funciona no celular|tem app|tem aplicativo|como usar a voz|como usar voz|assistente de voz|tocar para falar|ouvir resposta|falar com voce)\b/i
+
 function mentionsPlatformIdentity(question: string): boolean {
   return /\b(dvais|davi|mentor|plataforma)\b/i.test(question)
 }
@@ -53,6 +56,10 @@ function shouldBypassKnowledgeBase(args: {
 
   if (detectedIntentType === 'reclamacao' || detectedIntentType === 'comparar') {
     return `intent:${detectedIntentType}`
+  }
+
+  if (ASSISTANT_USAGE_FAQ_RE.test(normalizedQuestion)) {
+    return null
   }
 
   if (ASSISTANT_TECHNICAL_RE.test(normalizedQuestion)) {

@@ -454,11 +454,21 @@ export const ENTRIES: KBEntry[] = [
   {
     id: 'suporte',
     title: 'Suporte e contato',
-    keywords: ['suporte', 'ajuda', 'whatsapp', 'contato', 'atendimento'],
+    keywords: [
+      'suporte',
+      'ajuda',
+      'whatsapp',
+      'contato',
+      'atendimento',
+      { term: 'preciso de ajuda', weight: 7 },
+      { term: 'ajuda com a plataforma', weight: 9 },
+      { term: 'ajuda com o site', weight: 8 },
+      { term: 'preciso de ajuda com a plataforma', weight: 10 },
+    ],
     responses: [
-      'O DVAi$ oferece suporte via WhatsApp com IA: você envia texto, áudio ou até foto de nota fiscal e recebe orientação personalizada. Aqui no site, eu também posso te ajudar com qualquer dúvida.',
-      'O suporte da plataforma funciona via WhatsApp com IA — responde rápido por texto, áudio ou foto. Aqui no site, eu posso te explicar qualquer parte da plataforma. O que quer saber?',
-      'O atendimento do DVAi$ é via WhatsApp com IA, disponível 24/7. Mas agora, eu posso te apresentar qualquer funcionalidade. Sobre o que quer saber?',
+      'Se você quiser ajuda sobre a plataforma, eu posso te explicar aqui no site as páginas, o cadastro, o login e as funcionalidades principais. Se precisar falar com o responsável pelo projeto, use a página de contato.',
+      'Aqui no site eu consigo te guiar pela plataforma e responder dúvidas sobre análise, segurança, aprendizado, cadastro e login. Para contato direto com o projeto, o caminho mais fiel é a página de contato.',
+      'Posso apresentar tudo o que a plataforma oferece e te conduzir pelas páginas agora mesmo. Se a sua necessidade for falar com o responsável pelo projeto, use a página de contato.',
     ],
   },
   {
@@ -477,9 +487,9 @@ export const ENTRIES: KBEntry[] = [
       { term: 'relatório mensal', weight: 5 },
     ],
     responses: [
-      'O Guia Financeiro é um add-on opcional do DVAi$: você informa suas receitas e despesas (por texto, áudio, foto de nota ou PDF via WhatsApp) e a plataforma monta um relatório mensal pra você saber quanto pode investir com segurança.',
-      'A ideia do Guia Financeiro é simples: antes de investir, você entende sua saúde financeira. A plataforma organiza entradas, saídas e objetivos — pra você não se expor além do que pode.',
-      'O Guia Financeiro vai organizar sua realidade financeira: você envia seus dados pelo WhatsApp e recebe um relatório mensal de despesas com orientação sobre quanto alocar. É um add-on que faz toda a diferença.',
+      'O Guia Financeiro é um add-on opcional do DVAi$: ele organiza receitas, despesas e objetivos para mostrar quanto faz sentido investir com segurança, sem se expor além do seu momento.',
+      'A ideia do Guia Financeiro é simples: antes de investir, você entende sua saúde financeira. A plataforma organiza entradas, saídas e objetivos pra orientar limites, risco e próximos passos com mais clareza.',
+      'O Guia Financeiro ajuda a transformar sua realidade financeira em um plano mais consciente. Em vez de investir no escuro, você passa a enxergar gastos, capacidade de aporte e margem de segurança.',
     ],
     actions: [{ type: 'navigateRoute', route: '/seguranca', targetId: 'seguranca-hero' }],
   },
@@ -561,7 +571,8 @@ export const ENTRIES: KBEntry[] = [
     title: 'O que não fazemos',
     keywords: [
       { term: 'o que não faz', weight: 5 },
-      { term: 'o que vocês não fazem', weight: 5 },
+      { term: 'o que a plataforma não faz', weight: 6 },
+      { term: 'o que o dvai$ não faz', weight: 6 },
       { term: 'não faz', weight: 3 },
       { term: 'limitações', weight: 3 },
       { term: 'o que não oferecem', weight: 4 },
@@ -656,12 +667,13 @@ export const ENTRIES: KBEntry[] = [
       { term: 'funcionalidades', weight: 4 },
       { term: 'recursos da plataforma', weight: 4 },
       { term: 'o que a plataforma oferece', weight: 5 },
-      { term: 'o que voces oferecem', weight: 4 },
+      { term: 'o que voces oferecem', weight: 8 },
+      { term: 'voces oferecem', weight: 6 },
     ],
     responses: [
       'A plataforma DVAi$ vai oferecer: análise de mercado guiada com IA, trilha de aprendizado do iniciante ao analista, proteção inteligente contra decisões ruins e suporte por voz e texto. Quer que eu explique alguma dessas áreas?',
       'O DVAi$ vai ter: mentor com IA que explica indicadores na prática, alertas de risco, trilha de evolução personalizada e Guia Financeiro para organizar suas finanças. Posso detalhar qualquer uma.',
-      'Na plataforma você vai ter: análise guiada de mercado, proteção em camadas, aprendizado progressivo e suporte via WhatsApp com IA. Tudo pra investir com mais segurança e método. Quer saber mais sobre alguma?',
+      'Na plataforma você vai encontrar análise guiada, proteção em camadas, aprendizado progressivo e uma experiência assistida por texto e voz para te orientar pela jornada. Quer saber mais sobre alguma dessas áreas?',
     ],
     actions: [{ type: 'navigateRoute', route: '/' }],
   },
@@ -779,7 +791,7 @@ export const ENTRIES: KBEntry[] = [
     responses: [
       'Com o DVAi$ você vai ter um mentor de IA que te acompanha: ensina a analisar o mercado, te protege de decisões ruins e evolui com você. Tudo sem custódia e sem pedir senhas. Quer experimentar o cadastro?',
       'A vantagem do DVAi$ é clara: em vez de investir no escuro, você vai ter orientação guiada, alertas inteligentes e uma trilha de aprendizado personalizada. Se cadastrar é o primeiro passo.',
-      'O DVAi$ vai transformar como você investe: análise guiada por IA, proteção em camadas, trilha do iniciante ao analista e suporte via WhatsApp. Quer ver como funciona? Começa pelo cadastro!',
+      'O DVAi$ vai transformar como você investe: análise guiada por IA, proteção em camadas, trilha do iniciante ao analista e uma jornada assistida para você entender cada etapa. Quer ver como funciona? Começa pelo cadastro!',
     ],
     actions: [{ type: 'navigateRoute', route: '/cadastro', targetId: 'cadastro-card' }],
     ctas: [
@@ -1223,6 +1235,7 @@ function addToIndex(term: string, entryId: string, weight: number) {
 // e causam falsos positivos massivos quando indexados
 const GENERIC_NGRAMS = new Set([
   'o que', 'que e', 'o que e', 'o que e o', 'o que e a',
+  'o que voces', 'que voces',
   'que e o', 'que e a', 'e o', 'e a', 'e o que',
   'como funciona', 'como funciona o', 'como funciona a',
   'como funciona as', 'como funciona os',
@@ -1232,8 +1245,17 @@ const GENERIC_NGRAMS = new Set([
   'fala sobre', 'conta sobre',
   'qual e', 'qual e o', 'qual e a', 'qual o', 'qual a',
   'por que', 'por que eu', 'por que o', 'por que a',
+  'preciso de', 'a plataforma',
   'pra que', 'para que',
 ])
+
+const EXACT_KB_OVERRIDES: Array<{ pattern: RegExp; entryId: string }> = [
+  { pattern: /^o que e o dvais$/, entryId: 'elevator_pitch' },
+  { pattern: /^o que e o davi$/, entryId: 'elevator_pitch' },
+  { pattern: /^o que voces oferecem$/, entryId: 'o_que_posso_fazer' },
+  { pattern: /^como usar a voz$/, entryId: 'assistente_voz' },
+  { pattern: /^funciona no celular$/, entryId: 'compatibilidade_navegador' },
+]
 
 // Verifica se um n-gram é genérico demais para indexar
 function isGenericNGram(ngram: string): boolean {
@@ -1354,6 +1376,10 @@ function cleanupKBResultCache() {
 // Em server-side, limpar durante operações normais (cleanup automático no setCachedKBResult)
 if (typeof window !== 'undefined' && typeof setInterval !== 'undefined') {
   setInterval(cleanupKBResultCache, 2 * 60 * 1000)
+}
+
+export function clearKnowledgeBaseCaches() {
+  kbResultCache.clear()
 }
 
 // Extrair palavras e frases (n-grams) para busca flexível
@@ -1525,9 +1551,31 @@ function hasSubstantiveKBMatch(matchedTerms: string[], words: string[]): boolean
   })
 }
 
+function buildDirectKBResult(entryId: string, reason: string, matchedTerms: string[]): KBReplyRaw {
+  const entry = ENTRIES.find(item => item.id === entryId)
+  if (!entry) return null
+
+  return {
+    entryId: entry.id,
+    responses: entry.responses,
+    actions: entry.actions,
+    ctas: entry.ctas,
+    confidence: 0.99,
+    score: 99,
+    reason,
+    matchedTerms,
+  }
+}
+
 // Opção A: Retorna entryId e responses (client escolhe variação)
 export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBReplyRaw {
   const q = normalizeQuestion(questionRaw || '')
+
+  if (/\bo que\b/.test(q) && (q.includes('dvai') || q.includes('davi')) && !/\bnao\b/.test(q)) {
+    const result = buildDirectKBResult('elevator_pitch', 'identity_override', [q])
+    setCachedKBResult(q, result)
+    return result
+  }
 
   if (KB_FORCE_LLM_RE.test(q)) {
     return null
@@ -1543,6 +1591,13 @@ export function askFromKnowledgeBase(questionRaw: string, seed?: number): KBRepl
     !FAQ_ANCHOR_RE.test(q)
   ) {
     return null
+  }
+
+  for (const override of EXACT_KB_OVERRIDES) {
+    if (!override.pattern.test(q)) continue
+    const result = buildDirectKBResult(override.entryId, 'exact_override', [q])
+    setCachedKBResult(q, result)
+    return result
   }
   
   // Verificar cache primeiro (melhora performance e match rate)

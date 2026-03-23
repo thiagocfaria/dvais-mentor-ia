@@ -44,3 +44,9 @@ Endpoint principal do assistente. Valida entrada, consulta KB e aciona LLM apena
 
 ## GET /api/health
 Retorna informacoes basicas de saude do backend e alguns indicadores internos.
+
+### Campos relevantes
+- `status`: saude geral do backend.
+- `kbVersion`: versao real da base de conhecimento em uso no deploy.
+- `build.gitSha` / `build.buildId`: identificadores do build atual para confirmar o rollout publicado.
+- `llm.configured`, `llm.status`, `llm.provider`, `llm.model`: estado do provider LLM.

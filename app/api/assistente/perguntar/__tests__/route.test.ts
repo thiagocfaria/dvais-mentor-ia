@@ -129,6 +129,36 @@ describe('POST /api/assistente/perguntar', () => {
     expect(String(data.spokenText)).toContain('Texto + toque')
   })
 
+  test('mantém KB para FAQ direta de compatibilidade no celular', async () => {
+    const req = buildRequest(
+      { question: 'funciona no celular?', history: [], context: {} },
+      { userId: `unit-${Date.now()}`, ip: `4.5.4.${Math.floor(Math.random() * 200)}` }
+    )
+
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(callLLMMock).not.toHaveBeenCalled()
+    expect(data.entryId).toBe('compatibilidade_navegador')
+    expect(String(data.responses?.join(' '))).toMatch(/texto \+ toque/i)
+  })
+
+  test('mantém KB para FAQ direta de uso da voz', async () => {
+    const req = buildRequest(
+      { question: 'como usar a voz?', history: [], context: {} },
+      { userId: `unit-${Date.now()}`, ip: `4.6.4.${Math.floor(Math.random() * 200)}` }
+    )
+
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(callLLMMock).not.toHaveBeenCalled()
+    expect(data.entryId).toBe('assistente_voz')
+    expect(String(data.responses?.join(' '))).toMatch(/tocar para falar|ouvir resposta/i)
+  })
+
   test('responde com diagnóstico contextual para celular sem depender do LLM', async () => {
     callLLMMock.mockResolvedValue({
       type: 'response',
