@@ -126,7 +126,7 @@ describe('POST /api/assistente/perguntar', () => {
 
     expect(res.status).toBe(200)
     expect(callLLMMock).not.toHaveBeenCalled()
-    expect(String(data.spokenText)).toContain('Texto + toque')
+    expect(String(data.spokenText)).toMatch(/voz cont[íi]nua|modo degradado em texto/i)
   })
 
   test('mantém KB para FAQ direta de compatibilidade no celular', async () => {
@@ -141,7 +141,7 @@ describe('POST /api/assistente/perguntar', () => {
     expect(res.status).toBe(200)
     expect(callLLMMock).not.toHaveBeenCalled()
     expect(data.entryId).toBe('compatibilidade_navegador')
-    expect(String(data.responses?.join(' '))).toMatch(/texto \+ toque/i)
+    expect(String(data.responses?.join(' '))).toMatch(/sem instalar app|modo degradado em texto|ligar o davi/i)
   })
 
   test('mantém KB para FAQ direta de uso da voz', async () => {
@@ -156,7 +156,7 @@ describe('POST /api/assistente/perguntar', () => {
     expect(res.status).toBe(200)
     expect(callLLMMock).not.toHaveBeenCalled()
     expect(data.entryId).toBe('assistente_voz')
-    expect(String(data.responses?.join(' '))).toMatch(/tocar para falar|ouvir resposta/i)
+    expect(String(data.responses?.join(' '))).toMatch(/falar com davi|volto a escutar|modo degradado em texto/i)
   })
 
   test('responde com diagnóstico contextual para celular sem depender do LLM', async () => {
@@ -179,8 +179,8 @@ describe('POST /api/assistente/perguntar', () => {
 
     expect(res.status).toBe(200)
     expect(callLLMMock).not.toHaveBeenCalled()
-    expect(String(data.spokenText)).toMatch(/texto \+ toque/i)
-    expect(String(data.spokenText)).toMatch(/navegador|compatibilidade/i)
+    expect(String(data.spokenText)).toMatch(/voz cont[íi]nua|modo degradado em texto/i)
+    expect(String(data.spokenText)).toMatch(/navegador|microfone|autoplay/i)
   })
 
   test('responde com diagnóstico contextual para microfone sem depender do LLM', async () => {
@@ -204,7 +204,7 @@ describe('POST /api/assistente/perguntar', () => {
     expect(res.status).toBe(200)
     expect(callLLMMock).not.toHaveBeenCalled()
     expect(String(data.spokenText)).toMatch(/microfone|permiss[aã]o/i)
-    expect(String(data.spokenText)).toMatch(/tocar para falar|push-to-talk/i)
+    expect(String(data.spokenText)).toMatch(/modo degradado em texto|browser|navegador/i)
   })
 
   test('responde com diagnóstico contextual para voz sem fala sem depender do LLM', async () => {
@@ -227,7 +227,7 @@ describe('POST /api/assistente/perguntar', () => {
 
     expect(res.status).toBe(200)
     expect(callLLMMock).not.toHaveBeenCalled()
-    expect(String(data.spokenText)).toMatch(/ouvir resposta|toque na tela|gesto/i)
+    expect(String(data.spokenText)).toMatch(/modo degradado em texto|bloqueado o [áa]udio autom[aá]tico/i)
     expect(String(data.spokenText)).toMatch(/audio|áudio|voz/i)
   })
 

@@ -78,6 +78,9 @@ async function installVoiceStubs(page: Page, mode: 'success' | 'blocked' | 'unav
       }
 
       ;(window as Window & { __speechCalls?: typeof speechCalls }).__speechCalls = speechCalls
+      ;(window as Window & { __voiceReady?: () => boolean }).__voiceReady = () => {
+        return Boolean((FakeRecognition as typeof FakeRecognition & { lastInstance?: any }).lastInstance)
+      }
       ;(window as Window & { __emitSpeech?: (text: string) => void }).__emitSpeech = (text: string) => {
         const instance = (FakeRecognition as typeof FakeRecognition & { lastInstance?: any }).lastInstance
         if (!instance) return
@@ -98,7 +101,7 @@ async function installVoiceStubs(page: Page, mode: 'success' | 'blocked' | 'unav
 }
 
 test.describe('Pipeline de voz', () => {
-  test('pergunta por texto recebe resposta em voz', async ({ page }) => {
+  test('ao ligar o Davi ele já entra ouvindo e responde por voz', async ({ page }) => {
     await installVoiceStubs(page, 'success')
     await page.route('**/api/assistente/perguntar', async route => {
       await route.fulfill({
@@ -113,19 +116,35 @@ test.describe('Pipeline de voz', () => {
 
     await page.goto('/', { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: /falar com davi/i }).click()
-    await page.getByPlaceholder(/pergunte algo/i).fill('como funciona o cadastro?')
-    await page.getByRole('button', { name: /enviar/i }).click()
+    await expect
+      .poll(async () => page.evaluate(() => (window as Window & { __voiceReady?: () => boolean }).__voiceReady?.() ?? false))
+      .toBe(true)
+    await page.evaluate(() => (window as Window & { __emitSpeech?: (text: string) => void }).__emitSpeech?.('como funciona o cadastro?'))
 
-    await expect(page.getByText(/o assistente está falando/i)).toBeVisible()
+    await expect
+      .poll(async () =>
+        page.evaluate(
+          () =>
+            ((window as Window & { __speechCalls?: Array<{ text?: string; type: string }> }).__speechCalls ?? []).some(
+              call => call.type === 'speak' && /resposta falada do assistente/i.test(call.text ?? '')
+            )
+        )
+      )
+      .toBe(true)
     await expect(page.getByText(/resposta falada do assistente/i)).toBeVisible()
   })
 
-  test('pergunta por voz em push-to-talk autoenvia e recebe resposta em voz', async ({ page }) => {
+  test('depois de responder ele volta a ouvir sem clique extra', async ({ page }) => {
     await installVoiceStubs(page, 'success')
+    let callCount = 0
     await page.route('**/api/assistente/perguntar', async route => {
+      callCount += 1
       await route.fulfill({
         json: {
-          spokenText: 'Entendi sua pergunta e respondi por voz.',
+          spokenText:
+            callCount === 1
+              ? 'Entendi sua primeira pergunta.'
+              : 'Entendi sua segunda pergunta.',
           actions: [],
           confidence: 0.9,
           mode: 'normal',
@@ -135,24 +154,20 @@ test.describe('Pipeline de voz', () => {
 
     await page.goto('/', { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: /falar com davi/i }).click()
-    await page.getByRole('button', { name: /tocar para falar/i }).click()
+    await expect
+      .poll(async () => page.evaluate(() => (window as Window & { __voiceReady?: () => boolean }).__voiceReady?.() ?? false))
+      .toBe(true)
     await page.evaluate(() => (window as Window & { __emitSpeech?: (text: string) => void }).__emitSpeech?.('como funciona o login'))
 
-    await expect
-      .poll(async () =>
-        page.evaluate(
-          () =>
-            ((window as Window & { __speechCalls?: Array<{ text?: string; type: string }> }).__speechCalls ?? []).some(
-              call => call.type === 'speak' && /entendi sua pergunta e respondi por voz/i.test(call.text ?? '')
-            )
-        )
-      )
-      .toBe(true)
-    await expect(page.getByText(/entendi sua pergunta e respondi por voz/i)).toBeVisible()
+    await expect(page.getByText(/entendi sua primeira pergunta/i)).toBeVisible()
+    await expect(page.getByText(/^ouvindo$/i)).toBeVisible()
+
+    await page.evaluate(() => (window as Window & { __emitSpeech?: (text: string) => void }).__emitSpeech?.('e depois disso'))
+    await expect(page.getByText(/entendi sua segunda pergunta/i)).toBeVisible()
   })
 
-  test('explica quando autoplay bloqueia o áudio e permite replay manual', async ({ page }) => {
-    await installVoiceStubs(page, 'first-block-then-play')
+  test('em autoplay bloqueado cai para modo degradado e mostra fallback textual', async ({ page }) => {
+    await installVoiceStubs(page, 'blocked')
     await page.route('**/api/assistente/perguntar', async route => {
       await route.fulfill({
         json: {
@@ -166,32 +181,21 @@ test.describe('Pipeline de voz', () => {
 
     await page.goto('/', { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: /falar com davi/i }).click()
-    await page.getByPlaceholder(/pergunte algo/i).fill('teste de voz')
-    await page.getByRole('button', { name: /enviar/i }).click()
-
-    await expect(page.getByRole('button', { name: /ouvir resposta/i })).toBeVisible()
-    await expect(page.getByText(/não liberou áudio automático/i)).toBeVisible()
-
-    const beforeReplayCalls = await page.evaluate(
-      () => ((window as Window & { __speechCalls?: Array<{ text?: string; type: string }> }).__speechCalls ?? []).length
-    )
-    await page.getByRole('button', { name: /ouvir resposta/i }).click()
     await expect
-      .poll(
-        async () =>
-          page.evaluate(
-            () => ((window as Window & { __speechCalls?: Array<{ text?: string; type: string }> }).__speechCalls ?? []).length
-          )
-      )
-      .toBeGreaterThan(beforeReplayCalls)
+      .poll(async () => page.evaluate(() => (window as Window & { __voiceReady?: () => boolean }).__voiceReady?.() ?? false))
+      .toBe(true)
+    await page.evaluate(() => (window as Window & { __emitSpeech?: (text: string) => void }).__emitSpeech?.('teste de voz'))
+
+    await expect(page.getByText(/o navegador bloqueou o áudio automático/i).first()).toBeVisible()
+    await expect(page.getByPlaceholder(/digite sua pergunta|escreva sua pergunta|pergunte algo/i)).toBeVisible()
   })
 
-  test('mantém fluxo previsível no mobile com tocar para falar e fallback textual', async ({ page }) => {
+  test('ocultar mantém a sessão ativa e desativar davi encerra a captura', async ({ page }) => {
     await installVoiceStubs(page, 'success')
     await page.route('**/api/assistente/perguntar', async route => {
       await route.fulfill({
         json: {
-          spokenText: 'Resposta em voz no mobile.',
+          spokenText: 'Sessão ainda ativa.',
           actions: [],
           confidence: 0.9,
           mode: 'normal',
@@ -199,15 +203,18 @@ test.describe('Pipeline de voz', () => {
       })
     })
 
-    await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/', { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: /falar com davi/i }).click()
-    await expect(page.getByRole('button', { name: /tocar para falar/i })).toBeVisible()
-    await page.getByRole('button', { name: /tocar para falar/i }).click()
-    await page.evaluate(() => (window as Window & { __emitSpeech?: (text: string) => void }).__emitSpeech?.('como funciona o cadastro'))
+    await page.getByRole('button', { name: /ocultar/i }).click()
+    await expect(page.getByRole('button', { name: /desativar davi/i })).toBeVisible()
 
-    await expect(page.getByText(/o assistente está falando/i)).toBeVisible()
-    await expect(page.getByText(/resposta em voz no mobile/i)).toBeVisible()
-    await expect(page.getByPlaceholder(/pergunte algo/i)).toBeVisible()
+    await expect
+      .poll(async () => page.evaluate(() => (window as Window & { __voiceReady?: () => boolean }).__voiceReady?.() ?? false))
+      .toBe(true)
+    await page.evaluate(() => (window as Window & { __emitSpeech?: (text: string) => void }).__emitSpeech?.('como funciona o cadastro'))
+    await page.getByRole('button', { name: /desativar davi/i }).click()
+
+    await expect(page.getByRole('button', { name: /falar com davi/i })).toBeVisible()
+    await expect(page.getByText(/sessão ainda ativa/i)).toHaveCount(0)
   })
 })

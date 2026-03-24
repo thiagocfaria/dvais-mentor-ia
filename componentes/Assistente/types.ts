@@ -1,7 +1,15 @@
 export type GuidedStep = { id: string; title: string; description: string; targetId: string }
 export type TranscriptEntry = { question: string; answer: string; timestamp: number }
 export type AssistantMode = 'normal' | 'economico' | 'erro'
-export type VoiceRuntimeState = 'idle' | 'armed' | 'listening' | 'thinking' | 'speaking' | 'error'
+export type VoiceRuntimeState =
+  | 'off'
+  | 'starting'
+  | 'listening'
+  | 'thinking'
+  | 'speaking'
+  | 'hidden'
+  | 'degraded_text'
+  | 'error'
 export type VoiceIssue =
   | 'none'
   | 'autoplay_blocked'

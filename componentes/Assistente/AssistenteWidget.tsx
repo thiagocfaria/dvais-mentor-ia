@@ -23,10 +23,11 @@ const PUBLIC_ROUTES = new Set([
 export default function AssistenteWidget() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [sessionActive, setSessionActive] = useState(false)
   const [mobileSelectionMode, setMobileSelectionMode] = useState(false)
   const [cancelSelectionToken, setCancelSelectionToken] = useState(0)
   const isAllowed = useMemo(() => PUBLIC_ROUTES.has(pathname), [pathname])
-  const isSelectionOverlay = open && mobileSelectionMode
+  const isSelectionOverlay = sessionActive && open && mobileSelectionMode
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -53,20 +54,23 @@ export default function AssistenteWidget() {
           : 'inset-x-2 bottom-4 items-end sm:inset-auto sm:bottom-6 sm:right-6'
       }`}
     >
-      {open && (
+      {sessionActive && (
         <div
           id="assistente-live-widget"
-          aria-hidden={isSelectionOverlay}
+          aria-hidden={isSelectionOverlay || !open}
           className={`h-[min(720px,calc(100vh-5rem))] max-h-[calc(100vh-5rem)] w-[calc(100vw-1rem)] max-w-none overflow-hidden rounded-[30px] border border-white/10 bg-black/75 shadow-2xl shadow-cyan-950/40 backdrop-blur-xl transition-all duration-200 sm:h-[min(760px,calc(100vh-3rem))] sm:max-h-[min(760px,calc(100vh-3rem))] sm:w-[420px] sm:max-w-[92vw] ${
             isSelectionOverlay
               ? 'pointer-events-none invisible fixed -bottom-[200vh] left-0 top-auto h-px w-px overflow-hidden border-transparent opacity-0'
-              : 'pointer-events-auto opacity-100'
+              : open
+                ? 'pointer-events-auto opacity-100'
+                : 'hidden'
           }`}
         >
           <Assistente
             onMobileSelectionModeChange={setMobileSelectionMode}
             cancelSelectionToken={cancelSelectionToken}
-            onClose={() => setOpen(false)}
+            onHide={() => setOpen(false)}
+            hidden={!open}
           />
         </div>
       )}
@@ -99,10 +103,14 @@ export default function AssistenteWidget() {
         <button
           className="group flex items-center gap-2 self-end rounded-full border border-white/10 bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:from-blue-500 hover:via-cyan-400 hover:to-blue-500"
           onClick={() => {
-            if (open) {
+            if (sessionActive) {
+              setSessionActive(false)
+              setOpen(false)
               setMobileSelectionMode(false)
+              return
             }
-            setOpen(prev => !prev)
+            setSessionActive(true)
+            setOpen(true)
           }}
           aria-expanded={open}
           aria-controls="assistente-live-widget"
@@ -111,7 +119,7 @@ export default function AssistenteWidget() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-300 opacity-60" />
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-cyan-200" />
           </span>
-          <span>{open ? 'Ocultar Davi' : 'Falar com Davi'}</span>
+          <span>{sessionActive ? 'Desativar Davi' : 'Falar com Davi'}</span>
         </button>
       )}
     </div>

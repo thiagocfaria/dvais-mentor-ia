@@ -112,21 +112,21 @@ export function mapTtsResultToVoiceIssue(result: TTSResult): VoiceIssue {
 export function getVoiceDiagnosticMessage(issue: VoiceIssue): string {
   switch (issue) {
     case 'autoplay_blocked':
-      return 'O navegador não liberou áudio automático. A resposta foi mantida no chat e você pode tocar em "Ouvir resposta".'
+      return 'O navegador não liberou o áudio automático. O Davi manteve a resposta no chat e entrou em modo degradado.'
     case 'tts_unavailable':
-      return 'Este navegador não oferece fala confiável aqui. A resposta continua disponível em texto.'
+      return 'Este navegador não oferece fala confiável aqui. O Davi continua em modo texto nesta página.'
     case 'mic_denied':
-      return 'O microfone foi bloqueado. Libere a permissão no cadeado do navegador ou siga em texto.'
+      return 'O microfone foi bloqueado. Libere a permissão no cadeado do navegador; enquanto isso, o Davi segue em texto.'
     case 'speech_not_supported':
-      return 'Este navegador não suporta captura de voz confiável aqui. O chat continua em texto.'
+      return 'Este navegador não suporta captura de voz confiável aqui. O Davi continua em texto.'
     case 'no_speech':
       return 'Nenhum áudio foi detectado. Tente falar novamente ou use o texto.'
     case 'audio_capture_failed':
-      return 'Não foi possível capturar o microfone. Verifique a permissão e o dispositivo de áudio.'
+      return 'Não foi possível capturar o microfone. Verifique a permissão e o dispositivo; o Davi entra em modo texto.'
     case 'stt_timeout':
       return 'A captura ficou em silêncio por muito tempo. Tente de novo ou use o texto.'
     case 'tts_failed':
-      return 'A resposta chegou no chat, mas a fala falhou desta vez. Você pode tentar "Ouvir resposta".'
+      return 'A resposta chegou no chat, mas a fala falhou desta vez. O Davi entrou em modo degradado para você continuar por texto.'
     default:
       return ''
   }
@@ -181,7 +181,7 @@ export function useAssistantAPI(args: {
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const handleAskRef = useRef<
-    ((speechAvailable: boolean, ttsAvailable: boolean) => Promise<void>) | null
+    ((speechAvailable: boolean, ttsAvailable: boolean, questionOverride?: string) => Promise<void>) | null
   >(null)
 
   const shouldClearClickedContext = useCallback((text: string): boolean => {
@@ -217,8 +217,8 @@ export function useAssistantAPI(args: {
   }, [audioReplayText])
 
   const handleAsk = useCallback(
-    async (_speechAvailable: boolean, ttsAvailable: boolean) => {
-      const q = question.trim()
+    async (_speechAvailable: boolean, ttsAvailable: boolean, questionOverride?: string) => {
+      const q = (questionOverride ?? question).trim()
       if (!q) return
       if (q.length > 300) {
         setCaption('Resuma sua pergunta em até 300 caracteres.')

@@ -21,12 +21,15 @@ function statusLabel(
   if (voiceIssue === 'autoplay_blocked') return 'Áudio bloqueado'
   if (voiceIssue === 'tts_unavailable' || voiceIssue === 'speech_not_supported') return 'Sem suporte'
   if (voiceIssue === 'mic_denied') return 'Microfone bloqueado'
+  if (runtimeState === 'hidden') return 'Oculto'
+  if (runtimeState === 'degraded_text') return 'Modo degradado'
+  if (runtimeState === 'starting') return 'Conectando'
   if (runtimeState === 'listening') return 'Ouvindo'
   if (runtimeState === 'thinking') return 'Pensando'
   if (runtimeState === 'speaking') return 'Falando'
   if (runtimeState === 'error') return 'Erro'
   if (selectionMode) return 'Selecionando'
-  return 'Pronto'
+  return 'Ligado'
 }
 
 export function AssistantHeader({
@@ -46,7 +49,7 @@ export function AssistantHeader({
               Davi Assistente
             </p>
             <p className="mt-1 text-sm text-white">
-              Chat contextual com texto, voz manual e seleção por toque.
+              Guia por voz da plataforma, com fallback em texto só quando o navegador exigir.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -54,7 +57,7 @@ export function AssistantHeader({
               {statusLabel(runtimeState, voiceIssue, continuousMode, selectionEnabled)}
             </span>
             <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200">
-              {speechAvailable ? 'Voz manual' : 'Somente texto'}
+              {speechAvailable ? 'Sessão por voz' : 'Fallback em texto'}
             </span>
           </div>
         </div>
@@ -63,30 +66,34 @@ export function AssistantHeader({
           className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white hover:bg-white/10 transition-colors"
           onClick={onDeactivate}
         >
-          Fechar
+          Ocultar
         </button>
       </div>
 
       <div className="mt-3 min-h-[32px]">
         {voiceIssue === 'autoplay_blocked' ? (
-          <div className="px-4 py-2 text-xs text-amber-200">Áudio bloqueado. Toque em "Ouvir resposta" para reproduzir manualmente.</div>
+          <div className="px-4 py-2 text-xs text-amber-200">O navegador bloqueou o áudio automático. O Davi entrou em modo degradado e mantém a resposta no chat.</div>
         ) : voiceIssue === 'tts_unavailable' || voiceIssue === 'speech_not_supported' ? (
-          <div className="px-4 py-2 text-xs text-slate-300">Voz indisponível neste navegador. O chat continua funcionando em texto.</div>
+          <div className="px-4 py-2 text-xs text-slate-300">Voz indisponível neste navegador. O Davi continua em modo texto nesta página.</div>
         ) : voiceIssue === 'mic_denied' ? (
-          <div className="px-4 py-2 text-xs text-rose-200">Microfone bloqueado. Libere a permissão no navegador ou siga em texto.</div>
+          <div className="px-4 py-2 text-xs text-rose-200">Microfone bloqueado. Libere a permissão no navegador; enquanto isso, o Davi segue em modo texto.</div>
+        ) : runtimeState === 'starting' ? (
+          <div className="px-4 py-2 text-xs text-cyan-200">Preparando a sessão de voz do Davi.</div>
         ) : runtimeState === 'listening' ? (
           <ListeningWave />
         ) : runtimeState === 'thinking' ? (
           <ThinkingIndicator />
         ) : runtimeState === 'speaking' ? (
           <div className="px-4 py-2 text-xs text-cyan-300">🔊 O assistente está falando.</div>
+        ) : runtimeState === 'degraded_text' ? (
+          <div className="px-4 py-2 text-xs text-slate-300">O navegador limitou a voz contínua. Você ainda pode continuar no chat por texto.</div>
         ) : selectionEnabled ? (
           <div className="px-4 py-2 text-xs text-cyan-200">
             Toque em qualquer item da página para capturar o contexto dessa parte.
           </div>
         ) : (
           <div className="px-4 py-2 text-xs text-slate-400">
-            Pergunte em texto ou use Tocar para falar quando quiser falar com o assistente.
+            O Davi continua ligado e volta a ouvir quando a resposta termina.
           </div>
         )}
       </div>

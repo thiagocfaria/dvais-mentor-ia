@@ -57,13 +57,12 @@ const SMOKE_CASES: SmokeCase[] = [
   },
   {
     question: 'funciona no celular?',
-    expectedAny: ['texto + toque', 'tocar para falar'],
+    expectedAny: ['ligar o davi', 'modo degradado em texto', 'voz contínua'],
     expectedAll: ['navegador'],
   },
   {
     question: 'como usar a voz?',
-    expectedAny: ['tocar para falar', 'voz manual'],
-    expectedAll: ['ouvir resposta'],
+    expectedAny: ['falar com davi', 'volto a escutar', 'modo degradado em texto'],
   },
 ]
 

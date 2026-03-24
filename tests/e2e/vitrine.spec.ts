@@ -51,28 +51,12 @@ test.describe('Vitrine pública', () => {
     // Chat já está pronto — sem "Ativar assistente" nem ConsentModal
     await expect(page.getByRole('button', { name: /ativar assistente/i })).toHaveCount(0)
     await expect(page.getByText(/escolha o modo do assistente/i)).toHaveCount(0)
-    await expect(page.getByPlaceholder(/pergunte algo/i)).toBeVisible()
+    await expect(page.getByRole('button', { name: /desativar davi/i })).toBeVisible()
+    await expect(page.getByText(/sessão por voz|modo degradado em texto|microfone bloqueado/i).first()).toBeVisible()
 
-    // Botão Selecionar item está disponível como ação secundária
-    const selectionButton = page.getByRole('button', { name: /selecionar item/i })
-    await expect(selectionButton).toHaveCount(1)
-
-    // Testar seleção contextual
-    await selectionButton.scrollIntoViewIfNeeded()
-    await selectionButton.click()
-    const selectionOverlay = page.getByTestId('assistente-selection-overlay')
-    await expect(selectionOverlay).toBeVisible()
-
-    const overlayBox = await selectionOverlay.boundingBox()
-    expect(overlayBox).not.toBeNull()
-    expect(overlayBox!.y).toBeLessThan(120)
-    expect(overlayBox!.height).toBeLessThan(140)
-    await expect(page.locator('#assistente-live-widget')).toBeHidden()
-
-    const featureHeading = page.locator('#features-section h2').first()
-    await featureHeading.scrollIntoViewIfNeeded()
-    await featureHeading.click()
-
-    await expect(page.getByText(/contexto selecionado/i)).toBeVisible()
+    // O caminho principal não expõe mais controles manuais antigos
+    await expect(page.getByRole('button', { name: /selecionar item/i })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /tocar para falar/i })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /ouvir resposta/i })).toHaveCount(0)
   })
 })

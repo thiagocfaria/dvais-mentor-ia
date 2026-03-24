@@ -1,15 +1,24 @@
 import { describe, expect, test } from 'vitest'
 import {
+  createVoiceSessionState,
   mapSpeechErrorToVoiceIssue,
-  shouldAutoSubmitManualTranscript,
-  shouldRestartContinuousListening,
+  shouldResumeVoiceSession,
 } from '../useLiveVoice'
 
 describe('useLiveVoice helpers', () => {
-  test('autoenvia transcript final útil no modo manual', () => {
-    expect(shouldAutoSubmitManualTranscript({ text: 'olá davi', isFinal: true })).toBe(true)
-    expect(shouldAutoSubmitManualTranscript({ text: 'oi', isFinal: true })).toBe(true)
-    expect(shouldAutoSubmitManualTranscript({ text: 'olá davi', isFinal: false })).toBe(false)
+  test('cria sessão de voz ativa já ouvindo ao ligar o Davi', () => {
+    expect(createVoiceSessionState({ active: true, hidden: false, degradedText: false })).toBe(
+      'listening'
+    )
+    expect(createVoiceSessionState({ active: true, hidden: true, degradedText: false })).toBe(
+      'hidden'
+    )
+    expect(createVoiceSessionState({ active: true, hidden: false, degradedText: true })).toBe(
+      'degraded_text'
+    )
+    expect(createVoiceSessionState({ active: false, hidden: false, degradedText: false })).toBe(
+      'off'
+    )
   })
 
   test('mapeia erros de STT para issues de voz visíveis na UI', () => {
@@ -27,37 +36,52 @@ describe('useLiveVoice helpers', () => {
     ).toBe('speech_not_supported')
   })
 
-  test('reinicia escuta contínua só quando o encerramento não veio de uma pergunta já enviada', () => {
+  test('retoma a sessão de voz automaticamente quando o Davi continua ligado', () => {
     expect(
-      shouldRestartContinuousListening({
-        continuousMode: true,
-        isActive: true,
+      shouldResumeVoiceSession({
+        sessionActive: true,
+        uiHidden: false,
+        degradedText: false,
         isThinking: false,
         isTTSSpeaking: false,
-        submittedInSession: false,
-        endReason: 'ended',
+        documentVisible: true,
+        speechAvailable: true,
       })
     ).toBe(true)
 
     expect(
-      shouldRestartContinuousListening({
-        continuousMode: true,
-        isActive: true,
+      shouldResumeVoiceSession({
+        sessionActive: true,
+        uiHidden: false,
+        degradedText: true,
         isThinking: false,
         isTTSSpeaking: false,
-        submittedInSession: true,
-        endReason: 'ended',
+        documentVisible: true,
+        speechAvailable: true,
       })
     ).toBe(false)
 
     expect(
-      shouldRestartContinuousListening({
-        continuousMode: true,
-        isActive: true,
+      shouldResumeVoiceSession({
+        sessionActive: true,
+        uiHidden: true,
+        degradedText: false,
         isThinking: false,
         isTTSSpeaking: false,
-        submittedInSession: false,
-        endReason: 'manual_stop',
+        documentVisible: false,
+        speechAvailable: true,
+      })
+    ).toBe(false)
+
+    expect(
+      shouldResumeVoiceSession({
+        sessionActive: false,
+        uiHidden: false,
+        degradedText: false,
+        isThinking: false,
+        isTTSSpeaking: false,
+        documentVisible: true,
+        speechAvailable: true,
       })
     ).toBe(false)
   })

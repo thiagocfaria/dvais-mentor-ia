@@ -1,47 +1,48 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChatMessage } from './ChatMessage'
 import { useAssistantSession } from './hooks/useAssistantSession'
 import { useClickContext } from './hooks/useClickContext'
-import { useLiveVoice } from './hooks/useLiveVoice'
 import { useVisibleElements } from './hooks/useVisibleElements'
 import { useHighlight } from './hooks/useHighlight'
 import { useConversationHistory } from './hooks/useConversationHistory'
 import { useNavigationActions } from './hooks/useNavigationActions'
 import { useAssistantAPI } from './hooks/useAssistantAPI'
-import { useContinuousRestart } from './hooks/useContinuousRestart'
 import { AssistantHeader } from './AssistantHeader'
 import { ChatArea } from './ChatArea'
 import { InputArea } from './InputArea'
 import type { VoiceRuntimeState } from './types'
 import { CLICK_CONTEXT_TTL_MS } from './types'
+import { createVoiceSessionState, useLiveVoice } from './hooks/useLiveVoice'
 import { hasSTT, hasTTS, isCoarsePointerDevice } from './utils'
 
 type AssistenteProps = {
   onMobileSelectionModeChange?: (active: boolean) => void
   cancelSelectionToken?: number
-  onClose?: () => void
+  onHide?: () => void
+  hidden?: boolean
 }
 
 export default function Assistente({
   onMobileSelectionModeChange,
   cancelSelectionToken = 0,
-  onClose,
+  onHide,
+  hidden = false,
 }: AssistenteProps) {
-  const [isActive, setIsActive] = useState(false)
-  const [useVoice, setUseVoice] = useState(false)
   const [caption, setCaption] = useState('')
   const [question, setQuestion] = useState('')
-  const [continuousMode, setContinuousMode] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
   const [isCoarsePointer, setIsCoarsePointer] = useState(false)
+  const [degradedTextMode, setDegradedTextMode] = useState(false)
 
   const assistantRootRef = useRef<HTMLDivElement>(null)
-  const startLiveTimeoutRef = useRef<number | null>(null)
   const isListeningRef = useRef(false)
   const stopListeningRef = useRef<() => void>(() => {})
-  const sharedHandleAskRef = useRef<((speechAvailable: boolean, ttsAvailable: boolean) => Promise<void>) | null>(null)
+  const isSessionActiveRef = useRef(true)
+  const isDegradedTextRef = useRef(false)
+  const lastCompletedAnswerRef = useRef('')
+  const bootstrappedVoiceRef = useRef(false)
 
   const showTextDebug = process.env.NEXT_PUBLIC_ASSISTENTE_TEXT_DEBUG === 'true'
   const enableTranscriptDebug = process.env.NODE_ENV !== 'production' || showTextDebug
@@ -50,8 +51,7 @@ export default function Assistente({
     setIsCoarsePointer(isCoarsePointerDevice())
   }, [])
 
-  const prefersMobileSelectionMode = isCoarsePointer || isCoarsePointerDevice()
-  const shouldUnlockSelectionSurface = Boolean(isActive && selectionMode && prefersMobileSelectionMode)
+  const shouldUnlockSelectionSurface = false
 
   useEffect(() => {
     onMobileSelectionModeChange?.(shouldUnlockSelectionSurface)
@@ -69,9 +69,15 @@ export default function Assistente({
     )
   }, [shouldUnlockSelectionSurface])
 
-  const liveHintFallback = selectionMode
-    ? 'Toque em um item da página.'
-    : 'Pergunte em texto ou use Tocar para falar.'
+  const liveHintFallback = degradedTextMode
+    ? 'Se a voz falhar aqui, continue pelo texto.'
+    : 'Davi ligado. Pode falar naturalmente.'
+
+  const isActive = true
+  const speechAvailable = hasSTT()
+  const ttsAvailable = hasTTS()
+  const useVoice = speechAvailable && !degradedTextMode
+  const continuousMode = useVoice
 
   const sessionIdRef = useAssistantSession()
   const visibleElements = useVisibleElements(isActive)
@@ -103,8 +109,6 @@ export default function Assistente({
     setCaption,
   })
 
-  const isActiveRef = useRef(isActive)
-  const continuousModeRef = useRef(continuousMode)
   const isThinkingRef = useRef(false)
   const isTTSSpeakingRef = useRef(false)
 
@@ -123,8 +127,6 @@ export default function Assistente({
     setDiagnosticMessage,
     voiceIssue,
     setVoiceIssue,
-    canReplayAudio,
-    replayAudio,
   } = useAssistantAPI({
     sessionIdRef,
     conversationHistory,
@@ -145,58 +147,43 @@ export default function Assistente({
 
   const {
     isListening,
-    setIsListening,
-    toggleListening,
-    startContinuousListeningRef,
+    isStarting,
     stopListening,
+    startVoiceSession,
+    resumeIfAllowed,
     cleanupVoice,
   } = useLiveVoice({
     hasSTT,
     hasTTS,
-    isActiveRef,
-    continuousModeRef,
+    isSessionActiveRef,
     isThinkingRef,
     isTTSSpeakingRef,
-    handleAskRef: sharedHandleAskRef,
+    isDegradedTextRef,
+    onAsk: handleAsk,
     setQuestion,
     setCaption,
-    setContinuousMode,
     onVoiceIssue: setVoiceIssue,
     onDiagnosticMessage: setDiagnosticMessage,
   })
 
   useEffect(() => { isListeningRef.current = isListening }, [isListening])
   useEffect(() => { stopListeningRef.current = stopListening }, [stopListening])
-
-  useEffect(() => { sharedHandleAskRef.current = handleAsk }, [handleAsk])
-  useEffect(() => { isActiveRef.current = isActive }, [isActive])
-  useEffect(() => { continuousModeRef.current = continuousMode }, [continuousMode])
   useEffect(() => { isThinkingRef.current = isThinking }, [isThinking])
   useEffect(() => { isTTSSpeakingRef.current = isTTSSpeaking }, [isTTSSpeaking])
-
-  const { isRestartingRef } =
-    useContinuousRestart({
-      continuousMode,
-      useVoice,
-      isThinking,
-      isListening,
-      isActive,
-      qaAnswer,
-      isTTSSpeaking,
-      startContinuousListeningRef,
-    })
-
-  const speechAvailable = hasSTT()
-  const ttsAvailable = hasTTS()
+  useEffect(() => { isDegradedTextRef.current = degradedTextMode }, [degradedTextMode])
 
   const runtimeState: VoiceRuntimeState = useMemo(() => {
-    if (!isActive) return 'idle'
-    if (mode === 'erro') return 'error'
-    if (isTTSSpeaking) return 'speaking'
-    if (isThinking) return 'thinking'
-    if (isListening) return 'listening'
-    return selectionMode ? 'armed' : 'idle'
-  }, [isActive, isListening, isThinking, isTTSSpeaking, mode, selectionMode])
+    return createVoiceSessionState({
+      active: true,
+      hidden,
+      degradedText: degradedTextMode,
+      isStarting,
+      isListening,
+      isThinking,
+      isTTSSpeaking,
+      hasError: mode === 'erro',
+    })
+  }, [degradedTextMode, hidden, isListening, isStarting, isThinking, isTTSSpeaking, mode])
 
   useEffect(() => {
     if (!clickedContext) return
@@ -212,76 +199,68 @@ export default function Assistente({
     return () => {
       cleanupHighlight()
       cleanupNavigation()
-      if (startLiveTimeoutRef.current !== null) {
-        clearTimeout(startLiveTimeoutRef.current)
-        startLiveTimeoutRef.current = null
-      }
       abortControllerRef.current?.abort()
       cleanupVoice()
-      isRestartingRef.current = false
     }
-  }, [cleanupHighlight, cleanupNavigation, cleanupVoice, abortControllerRef, isRestartingRef])
+  }, [cleanupHighlight, cleanupNavigation, cleanupVoice, abortControllerRef])
 
-  // Auto-ativação no mount com defaults por dispositivo (cautela #3)
   useEffect(() => {
-    if (isActive) return
-    const voiceEnabled = speechAvailable
-    setUseVoice(voiceEnabled)
-    setContinuousMode(false)
-    setSelectionMode(false)
-    setIsActive(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const deactivate = useCallback(() => {
-    cleanupHighlight()
-    cleanupNavigation()
-    if (startLiveTimeoutRef.current !== null) {
-      clearTimeout(startLiveTimeoutRef.current)
-      startLiveTimeoutRef.current = null
+    if (!speechAvailable) {
+      setDegradedTextMode(true)
+      setVoiceIssue('speech_not_supported')
+      setDiagnosticMessage('Captura de voz não disponível neste navegador. O Davi entrou em modo texto.')
+      setCaption('Captura de voz não disponível neste navegador. O Davi entrou em modo texto.')
     }
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = null
-    stopListening()
-    setIsActive(false)
-    setQuestion('')
-    setQaAnswer('')
-    setCaption('')
-    setHintMessage('')
-    setClickedContext(null)
-    setMode('normal')
-    setIsListening(false)
-    setContinuousMode(false)
-    setSelectionMode(false)
-    setIsTTSSpeaking(false)
-    isRestartingRef.current = false
-    onClose?.()
-  }, [
-    stopListening,
-    cleanupHighlight,
-    cleanupNavigation,
-    abortControllerRef,
-    setQaAnswer,
-    setHintMessage,
-    setClickedContext,
-    setMode,
-    setIsListening,
-    setIsTTSSpeaking,
-    isRestartingRef,
-    onClose,
-  ])
+  }, [speechAvailable, setDiagnosticMessage, setVoiceIssue])
 
-  const toggleSelectionMode = useCallback(() => {
-    const next = !selectionMode
-    setSelectionMode(next)
-    setHintMessage(
-      next
-        ? prefersMobileSelectionMode
-          ? 'Selecionando item na página. O chat ficou em barra compacta para liberar o toque no conteúdo.'
-          : 'Seleção ativa. Toque em um item da página para capturar o contexto dessa parte.'
-        : 'Seleção cancelada. Continue pelo chat ou reative a seleção.'
-    )
-  }, [prefersMobileSelectionMode, selectionMode, setHintMessage])
+  useEffect(() => {
+    if (
+      voiceIssue === 'speech_not_supported' ||
+      voiceIssue === 'mic_denied' ||
+      voiceIssue === 'tts_unavailable' ||
+      voiceIssue === 'autoplay_blocked' ||
+      voiceIssue === 'audio_capture_failed' ||
+      voiceIssue === 'tts_failed'
+    ) {
+      setDegradedTextMode(true)
+      stopListening()
+    }
+  }, [stopListening, voiceIssue])
+
+  useEffect(() => {
+    if (!useVoice || hidden || bootstrappedVoiceRef.current) return
+    bootstrappedVoiceRef.current = true
+    const timeoutId = window.setTimeout(() => {
+      startVoiceSession().catch(() => {})
+    }, 100)
+    return () => clearTimeout(timeoutId)
+  }, [hidden, startVoiceSession, useVoice])
+
+  useEffect(() => {
+    if (!useVoice || !qaAnswer || isThinking || isTTSSpeaking) return
+    if (qaAnswer === lastCompletedAnswerRef.current) return
+
+    lastCompletedAnswerRef.current = qaAnswer
+    const timeoutId = window.setTimeout(() => {
+      resumeIfAllowed()
+    }, 450)
+    return () => clearTimeout(timeoutId)
+  }, [isTTSSpeaking, isThinking, qaAnswer, resumeIfAllowed, useVoice])
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        resumeIfAllowed()
+      } else {
+        stopListening()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [resumeIfAllowed, stopListening])
 
   useEffect(() => {
     if (!cancelSelectionToken) return
@@ -311,60 +290,51 @@ export default function Assistente({
   return (
     <div
       ref={assistantRootRef}
-      className={`relative z-20 flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-black/65 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl ${
+      className={`relative z-20 flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-black/65 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl transition-all ${
+        hidden ? 'pointer-events-none invisible opacity-0' : 'pointer-events-auto opacity-100'
+      } ${
         shouldUnlockSelectionSurface ? 'opacity-70' : ''
       }`}
     >
       <div className="flex h-full flex-col">
-        {isActive && (
-          <>
-          <AssistantHeader
-            runtimeState={runtimeState}
-            voiceIssue={voiceIssue}
-            continuousMode={continuousMode}
-            selectionMode={selectionMode}
-            speechAvailable={speechAvailable}
-            onDeactivate={deactivate}
-          />
-          <ChatArea
-            memoizedMessages={memoizedMessages}
-            isThinking={isThinking}
-            chatEndRef={chatEndRef}
-            caption={caption}
-            hintMessage={hintMessage}
-            liveHintFallback={liveHintFallback}
-            clickedContext={clickedContext}
-            setClickedContext={setClickedContext}
-            setHintMessage={setHintMessage}
-            selectionMode={selectionMode}
-            hasMessages={conversationHistory.length > 0}
-          />
-          <InputArea
-            enableTranscriptDebug={enableTranscriptDebug}
-            continuousMode={continuousMode}
-            isListening={isListening}
-            isThinking={isThinking}
-            isTTSSpeaking={isTTSSpeaking}
-            useVoice={useVoice}
-            speechAvailable={speechAvailable}
-            ttsAvailable={ttsAvailable}
-            mode={mode}
-            runtimeState={runtimeState}
-            question={question}
-            setQuestion={setQuestion}
-            handleAsk={handleAsk}
-            toggleListening={toggleListening}
-            handleExportTranscript={handleExportTranscript}
-            handleClearTranscript={handleClearTranscript}
-            selectionMode={selectionMode}
-            toggleSelectionMode={toggleSelectionMode}
-            canReplayAudio={canReplayAudio}
-            replayAudio={replayAudio}
-            diagnosticMessage={diagnosticMessage}
-            voiceIssue={voiceIssue}
-          />
-          </>
-        )}
+        <AssistantHeader
+          runtimeState={runtimeState}
+          voiceIssue={voiceIssue}
+          continuousMode={continuousMode}
+          selectionMode={selectionMode}
+          speechAvailable={speechAvailable}
+          onDeactivate={onHide ?? (() => {})}
+        />
+        <ChatArea
+          memoizedMessages={memoizedMessages}
+          isThinking={isThinking}
+          chatEndRef={chatEndRef}
+          caption={caption}
+          hintMessage={hintMessage}
+          liveHintFallback={liveHintFallback}
+          clickedContext={clickedContext}
+          setClickedContext={setClickedContext}
+          setHintMessage={setHintMessage}
+          selectionMode={selectionMode}
+          hasMessages={conversationHistory.length > 0}
+        />
+        <InputArea
+          enableTranscriptDebug={enableTranscriptDebug}
+          continuousMode={continuousMode}
+          isThinking={isThinking}
+          speechAvailable={speechAvailable}
+          ttsAvailable={ttsAvailable}
+          mode={mode}
+          runtimeState={runtimeState}
+          question={question}
+          setQuestion={setQuestion}
+          handleAsk={handleAsk}
+          handleExportTranscript={handleExportTranscript}
+          handleClearTranscript={handleClearTranscript}
+          diagnosticMessage={diagnosticMessage}
+          voiceIssue={voiceIssue}
+          showFallbackInput={degradedTextMode}
+        />
       </div>
     </div>
   )

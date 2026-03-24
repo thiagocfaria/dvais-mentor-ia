@@ -65,7 +65,7 @@ export function buildProductSupportResponse(question: string): ProductSupportRes
       subtype,
       response: {
         spokenText:
-          'Se o microfone não capta, libere a permissão no cadeado do navegador, recarregue a página e use Tocar para falar. Se continuar instável no celular, siga em Texto + toque.',
+          'Se o microfone não capta, libere a permissão no cadeado do navegador e recarregue a página. Quando o browser não sustenta a sessão por voz, o Davi entra em modo degradado em texto.',
         actions: [],
         requiresUserClick: false,
         confidence: 0.96,
@@ -79,7 +79,7 @@ export function buildProductSupportResponse(question: string): ProductSupportRes
       subtype,
       response: {
         spokenText:
-          'Se a voz não sair, toque na tela antes de pedir áudio e use Ouvir resposta. Alguns navegadores mobile bloqueiam autoplay; o chat em Texto + toque continua disponível.',
+          'Se a voz não sair, o navegador pode ter bloqueado o áudio automático. Nessa situação, o Davi mantém a resposta no chat e entra em modo degradado em texto para você continuar.',
         actions: [],
         requiresUserClick: false,
         confidence: 0.95,
@@ -92,7 +92,7 @@ export function buildProductSupportResponse(question: string): ProductSupportRes
     subtype,
     response: {
       spokenText:
-        'No celular, o caminho mais confiável aqui é Texto + toque. Se quiser voz, use Tocar para falar, confirme a permissão de microfone e teste em um navegador atualizado.',
+        'No celular, o Davi tenta funcionar em voz contínua na própria página, sem app. Se o navegador limitar microfone ou autoplay, o assistente explica o motivo e continua em modo degradado em texto.',
       actions: [],
       requiresUserClick: false,
       confidence: 0.94,

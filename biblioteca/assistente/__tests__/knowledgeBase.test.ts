@@ -258,7 +258,8 @@ describe('KB novas entradas v2', () => {
     const result = askFromKnowledgeBase('funciona no celular?')
     expect(result?.entryId).toBe('compatibilidade_navegador')
     const combined = result?.responses.join(' ') || ''
-    expect(combined).toMatch(/texto \+ toque/i)
+    expect(combined).toMatch(/navegador|celular|compatibilidade/i)
+    expect(combined).toMatch(/modo degradado|texto/i)
     expect(combined).toMatch(/navegador|sem instalar|sem app/i)
   })
 
@@ -269,12 +270,13 @@ describe('KB novas entradas v2', () => {
     expect(combined).toMatch(/sem (precisar )?instalar|sem app|navegador/i)
   })
 
-  test('retorna assistente_voz com fluxo manual previsível', () => {
+  test('retorna assistente_voz com fluxo voz-first a partir de "Falar com Davi"', () => {
     const result = askFromKnowledgeBase('como usar a voz?')
     expect(result?.entryId).toBe('assistente_voz')
     const combined = result?.responses.join(' ') || ''
-    expect(combined).toMatch(/tocar para falar|ouvir resposta/i)
-    expect(combined).not.toMatch(/reabre sozinho|microfone volta|continuo ouvindo|volta a ouvir automaticamente/i)
+    expect(combined).toMatch(/falar com davi|desativar davi|ocultar/i)
+    expect(combined).toMatch(/ouve|escuta|volta a ouvir|sess[aã]o/i)
+    expect(combined).not.toMatch(/tocar para falar|ouvir resposta|selecionar item/i)
   })
 
   test('o que vocês oferecem não empurra WhatsApp como resposta principal', () => {

@@ -91,13 +91,13 @@ describe('buildConversationHistory', () => {
     const issue = mapTtsResultToVoiceIssue({ ok: false, reason: 'autoplay_blocked' })
 
     expect(issue).toBe('autoplay_blocked')
-    expect(getVoiceDiagnosticMessage(issue)).toMatch(/ouvir resposta/i)
+    expect(getVoiceDiagnosticMessage(issue)).toMatch(/modo degradado|chat/i)
   })
 
   it('mapeia TTS indisponível para fallback textual explícito', () => {
     const issue = mapTtsResultToVoiceIssue({ ok: false, reason: 'tts_unavailable' })
 
     expect(issue).toBe('tts_unavailable')
-    expect(getVoiceDiagnosticMessage(issue)).toMatch(/continua disponível em texto/i)
+    expect(getVoiceDiagnosticMessage(issue)).toMatch(/modo texto/i)
   })
 })

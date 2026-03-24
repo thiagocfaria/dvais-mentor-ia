@@ -697,9 +697,9 @@ export const ENTRIES: KBEntry[] = [
       { term: 'falar por voz', weight: 6 },
     ],
     responses: [
-      'Para testar a voz, abra o chat e use "Tocar para falar". Você faz uma pergunta por vez, eu respondo em texto e tento falar a resposta quando o navegador permitir.',
-      'O caminho mais previsível aqui é: abrir o chat, tocar em "Tocar para falar", falar sua pergunta e, se o áudio automático falhar, usar "Ouvir resposta". O texto continua disponível o tempo todo.',
-      'Na web, a voz depende do navegador e das permissões. Por isso o Davi funciona com voz manual e fallback em texto, em vez de prometer conversa contínua em qualquer dispositivo.',
+      'Clique em "Falar com Davi" para ligar o assistente. A partir daí eu começo a ouvir, respondo por voz e volto a escutar sem você precisar apertar outro botão.',
+      'Quando o Davi está ligado, você fala naturalmente e eu sigo a conversa pela página. Se o navegador limitar a voz, a interface cai para modo degradado em texto com aviso claro.',
+      'Na web, a experiência por voz depende do navegador e das permissões. Por isso o Davi tenta ficar ligado em sessão contínua, mas entra em fallback quando o browser não sustenta esse fluxo.',
     ],
   },
   {
@@ -989,9 +989,9 @@ export const ENTRIES: KBEntry[] = [
       { term: 'instalar', weight: 3 },
     ],
     responses: [
-      'O DVAi$ funciona direto no navegador, sem instalar app. No celular, o caminho mais estável é Texto + toque; a voz pode variar conforme permissão, autoplay e compatibilidade do navegador.',
-      'Você pode usar a plataforma no celular e no computador, sem baixar aplicativo. Em mobile, recomendamos Texto + toque e "Tocar para falar" só quando o navegador estiver estável.',
-      'A plataforma roda no navegador em Android, iPhone e desktop. Para uma experiência mais previsível, use texto como base e trate a voz como opcional conforme o navegador permitir.',
+      'O DVAi$ funciona direto no navegador, sem instalar app. No celular, o Davi tenta ficar ligado por voz na própria página, mas a compatibilidade varia conforme permissão, autoplay e suporte do navegador.',
+      'Você pode usar a plataforma no celular e no computador sem baixar aplicativo. Se o navegador limitar a voz contínua, o assistente cai para modo degradado em texto e continua guiando a navegação.',
+      'A plataforma roda no navegador em Android, iPhone e desktop. A experiência principal é ligar o Davi e conversar; quando o browser não sustenta isso, o sistema explica e mantém o chat em texto.',
     ],
   },
   {
