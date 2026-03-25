@@ -23,9 +23,9 @@ function statusLabel(
   if (voiceIssue === 'mic_denied') return 'Microfone bloqueado'
   if (runtimeState === 'hidden') return 'Oculto'
   if (runtimeState === 'degraded_text') return 'Modo degradado'
-  if (runtimeState === 'starting') return 'Conectando'
-  if (runtimeState === 'listening') return 'Ouvindo'
-  if (runtimeState === 'thinking') return 'Pensando'
+  if (runtimeState === 'starting') return 'Preparando microfone'
+  if (runtimeState === 'listening') return 'Pode falar'
+  if (runtimeState === 'thinking') return 'Entendi, processando'
   if (runtimeState === 'speaking') return 'Falando'
   if (runtimeState === 'error') return 'Erro'
   if (selectionMode) return 'Selecionando'
@@ -78,11 +78,14 @@ export function AssistantHeader({
         ) : voiceIssue === 'mic_denied' ? (
           <div className="px-4 py-2 text-xs text-rose-200">Microfone bloqueado. Libere a permissão no navegador; enquanto isso, o Davi segue em modo texto.</div>
         ) : runtimeState === 'starting' ? (
-          <div className="px-4 py-2 text-xs text-cyan-200">Preparando a sessão de voz do Davi.</div>
+          <div className="px-4 py-2 text-xs text-cyan-200">Preparando microfone e reconhecimento de voz.</div>
         ) : runtimeState === 'listening' ? (
           <ListeningWave />
         ) : runtimeState === 'thinking' ? (
-          <ThinkingIndicator />
+          <div className="space-y-2 px-4 py-2">
+            <div className="text-xs text-cyan-200">Entendi, processando sua pergunta.</div>
+            <ThinkingIndicator />
+          </div>
         ) : runtimeState === 'speaking' ? (
           <div className="px-4 py-2 text-xs text-cyan-300">🔊 O assistente está falando.</div>
         ) : runtimeState === 'degraded_text' ? (

@@ -166,12 +166,17 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <div className="text-gray-400 text-sm mb-4 md:mb-0">
-            © {currentYear} DVAi$ - Mentor IA. Protótipo técnico para portfólio e entrevista.
+        <div className="border-t border-white/10 pt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="text-center md:text-left text-gray-400 text-sm">
+            <div>
+              © {currentYear} DVAi$ - Mentor IA. Protótipo técnico para portfólio e entrevista.
+              <span className="mt-2 block text-xs text-gray-500 md:ml-3 md:mt-0 md:inline">
+                Desenvolvido por Thiago Caetano Faria
+              </span>
+            </div>
           </div>
-          <div className="flex items-center space-x-6 text-sm text-gray-400">
-            <span className="flex items-center">
+          <div className="flex items-center justify-center md:justify-end space-x-6 text-sm text-gray-400">
+            <span className="flex items-center text-center md:text-left">
               <Icon name="fas fa-code" className="text-cyan-300 mr-2" />
               Foco em UX guiada, validação de dados e confiabilidade operacional
             </span>

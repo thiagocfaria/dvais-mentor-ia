@@ -29,6 +29,12 @@ test.describe('Vitrine pública', () => {
     await expect(placeholderLinks).toHaveCount(0)
   })
 
+  test('rodapé exibe a assinatura do autor de forma discreta', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' })
+
+    await expect(page.locator('footer')).toContainText(/Desenvolvido por Thiago Caetano Faria/i)
+  })
+
   test('login e cadastro deixam explícito que auth é apenas uma demo de interface', async ({
     page,
   }) => {

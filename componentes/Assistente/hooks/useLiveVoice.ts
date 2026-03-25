@@ -12,6 +12,7 @@ import type { VoiceIssue, VoiceRuntimeState } from '../types'
 type UseLiveVoiceArgs = {
   hasSTT: () => boolean
   hasTTS: () => boolean
+  mobileModeEnabled?: boolean
   isSessionActiveRef: React.MutableRefObject<boolean>
   isThinkingRef: React.MutableRefObject<boolean>
   isTTSSpeakingRef: React.MutableRefObject<boolean>
@@ -99,6 +100,7 @@ function isRecoverableVoiceIssue(issue: VoiceIssue) {
 export function useLiveVoice({
   hasSTT,
   hasTTS,
+  mobileModeEnabled = false,
   isSessionActiveRef,
   isThinkingRef,
   isTTSSpeakingRef,
@@ -158,6 +160,9 @@ export function useLiveVoice({
 
     const speechAvail = hasSTT()
     const ttsAvail = hasTTS()
+    const silenceTimeoutMs = mobileModeEnabled ? 6500 : 20000
+    const recoverableResumeDelayMs = mobileModeEnabled ? 280 : 700
+    const idleResumeDelayMs = mobileModeEnabled ? 180 : 450
     let cleanupCurrent: (() => void) | null = null
 
     const scheduleResume = (delayMs: number) => {
@@ -190,10 +195,19 @@ export function useLiveVoice({
           setIsListening(true)
           onVoiceIssue?.('none')
           onDiagnosticMessage?.('')
-          setCaption('🎤 Ouvindo...')
+          setCaption(mobileModeEnabled ? 'Pode falar.' : '🎤 Ouvindo...')
         },
         onResult: result => {
           setQuestion(result.text)
+          if (result.text.trim()) {
+            setCaption(
+              result.isFinal
+                ? 'Entendi, processando...'
+                : mobileModeEnabled
+                  ? `Pode falar: ${result.text.trim()}`
+                  : '🎤 Ouvindo...'
+            )
+          }
           if (shouldAutoSubmitVoiceTranscript(result)) {
             submittedInSessionRef.current = true
             const finalText = result.text.trim()
@@ -214,11 +228,15 @@ export function useLiveVoice({
           const issue = mapSpeechErrorToVoiceIssue(error)
           onVoiceIssue?.(issue)
           onDiagnosticMessage?.(voiceErrorMessage(error))
-          setCaption(`Erro: ${voiceErrorMessage(error)}`)
+          setCaption(
+            isRecoverableVoiceIssue(issue) && mobileModeEnabled
+              ? 'Ainda ouvindo. Tente falar de novo.'
+              : `Erro: ${voiceErrorMessage(error)}`
+          )
           speechCleanupRef.current?.()
           speechCleanupRef.current = null
           if (isRecoverableVoiceIssue(issue)) {
-            scheduleResume(700)
+            scheduleResume(recoverableResumeDelayMs)
           }
         },
         onEnd: reason => {
@@ -228,10 +246,10 @@ export function useLiveVoice({
           if (submittedInSessionRef.current || reason === 'manual_stop') {
             return
           }
-          scheduleResume(450)
+          scheduleResume(idleResumeDelayMs)
         },
       },
-      { silenceTimeoutMs: 20000, continuous: false }
+      { silenceTimeoutMs, continuous: false, mobile: mobileModeEnabled }
     )
 
     cleanupCurrent = cleanup
@@ -240,6 +258,7 @@ export function useLiveVoice({
     clearTimers,
     hasSTT,
     hasTTS,
+    mobileModeEnabled,
     isDegradedTextRef,
     isSessionActiveRef,
     isTTSSpeakingRef,

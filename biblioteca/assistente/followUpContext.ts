@@ -141,9 +141,9 @@ export function analyzeConversationContext(args: {
 
   if (isMobileContinuation && hasUsefulHistory && historyTopicHint && !questionLooksIndependent) {
     kbBypassReason = kbBypassReason || 'mobile_continuation'
-    conversationContextBlock += `\nCONTINUIDADE NO CELULAR:\n- responda como continuação do mesmo assunto, explicando o uso no celular sem reiniciar a conversa.\n- dentro deste produto, o caminho mais estável no celular é Texto + toque.\n- cite voz manual ou "Tocar para falar" apenas como opção quando o navegador suportar.\n- se mencionar áudio, lembre que alguns navegadores exigem gesto do usuário.\n`
+    conversationContextBlock += `\nCONTINUIDADE NO CELULAR:\n- responda como continuação do mesmo assunto no celular, sem reiniciar a conversa.\n- dentro deste produto, o objetivo é manter o Davi em sessão por voz na própria página.\n- quando o navegador não sustentar captura contínua ou áudio automático, explique isso e mencione modo degradado em texto.\n- prefira falar de compatibilidade do navegador, permissão de microfone e autoplay; evite descrever fluxos manuais antigos como caminho principal.\n`
     if (flowHint === 'login') {
-      conversationContextBlock += `\nLOGIN NO CELULAR:\n- explique o login no celular como uso do formulário normal, por texto e toque.\n- priorize revisar email e senha no formulário; não desvie para suporte genérico de voz se o assunto for login.\n`
+      conversationContextBlock += `\nLOGIN NO CELULAR:\n- explique o login no celular como uso do formulário normal dentro da página, mesmo quando a conversa estiver acontecendo por voz.\n- priorize revisar email e senha no formulário; não desvie para suporte genérico de voz se o assunto for login.\n`
     }
   }
 
@@ -172,7 +172,7 @@ export function analyzeConversationContext(args: {
 
   if (isMobileVoiceComplaint) {
     kbBypassReason = kbBypassReason || 'mobile_voice_support'
-    conversationContextBlock += `\nDIAGNÓSTICO DE SUPORTE:\n- cite compatibilidade do navegador, permissão de microfone, gesto do usuário para áudio e o fallback recomendado de texto + toque no celular.\n- não invente recursos não presentes no produto.\n`
+    conversationContextBlock += `\nDIAGNÓSTICO DE SUPORTE:\n- cite compatibilidade do navegador, permissão de microfone, gesto do usuário para áudio e o modo degradado em texto quando a sessão por voz não puder continuar.\n- não invente recursos não presentes no produto.\n`
   }
 
   return {

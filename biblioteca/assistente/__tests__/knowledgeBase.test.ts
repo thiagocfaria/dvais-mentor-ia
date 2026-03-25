@@ -94,6 +94,14 @@ describe('KB novas entradas de produto', () => {
     expect(result?.entryId).toBe('assistente_voz')
   })
 
+  test('assistente_voz não menciona fluxo manual antigo', () => {
+    const result = askFromKnowledgeBase('como usar a voz?')
+    expect(result?.entryId).toBe('assistente_voz')
+    const allResponses = result!.responses.join(' ')
+    expect(allResponses).toMatch(/Falar com Davi|volto a escutar|modo degradado/i)
+    expect(allResponses).not.toMatch(/Tocar para falar|Texto \+ toque|Ouvir resposta|Selecionar item/i)
+  })
+
   test('retorna protecao_inteligente para "proteção inteligente segurança"', () => {
     const result = askFromKnowledgeBase('proteção inteligente segurança')
     expect(result?.entryId).toBe('protecao_inteligente')

@@ -641,7 +641,7 @@ describe('POST /api/assistente/perguntar', () => {
       type: 'response',
       response: {
         spokenText:
-          'No celular, a forma mais estável de usar essa mesma experiência é texto + toque, com voz manual quando o navegador cooperar.',
+          'No celular, o Davi tenta seguir nessa mesma sessão por voz. Quando o navegador limitar a captura ou o áudio, ele explica o motivo e continua em modo degradado em texto.',
         actions: [],
         mode: 'normal',
       },
@@ -681,6 +681,7 @@ describe('POST /api/assistente/perguntar', () => {
     const llmRequest = callLLMMock.mock.calls[0][0] as Record<string, unknown>
     expect(String(llmRequest.effectiveQuestion)).toMatch(/celular/i)
     expect(String(llmRequest.conversationContextBlock)).toMatch(/produto|último tópico/i)
-    expect(String(llmRequest.conversationContextBlock)).toMatch(/texto \+ toque|tocar para falar|gesto do usuário/i)
+    expect(String(llmRequest.conversationContextBlock)).toMatch(/sessão por voz|modo degradado|compatibilidade do navegador/i)
+    expect(String(llmRequest.conversationContextBlock)).not.toMatch(/texto \+ toque|tocar para falar|selecionar item|ouvir resposta/i)
   })
 })

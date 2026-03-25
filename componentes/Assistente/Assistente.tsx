@@ -155,6 +155,7 @@ export default function Assistente({
   } = useLiveVoice({
     hasSTT,
     hasTTS,
+    mobileModeEnabled: isCoarsePointer,
     isSessionActiveRef,
     isThinkingRef,
     isTTSSpeakingRef,

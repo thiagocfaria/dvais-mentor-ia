@@ -160,7 +160,7 @@ test.describe('Pipeline de voz', () => {
     await page.evaluate(() => (window as Window & { __emitSpeech?: (text: string) => void }).__emitSpeech?.('como funciona o login'))
 
     await expect(page.getByText(/entendi sua primeira pergunta/i)).toBeVisible()
-    await expect(page.getByText(/^ouvindo$/i)).toBeVisible()
+    await expect(page.getByText(/^pode falar$/i)).toBeVisible()
 
     await page.evaluate(() => (window as Window & { __emitSpeech?: (text: string) => void }).__emitSpeech?.('e depois disso'))
     await expect(page.getByText(/entendi sua segunda pergunta/i)).toBeVisible()

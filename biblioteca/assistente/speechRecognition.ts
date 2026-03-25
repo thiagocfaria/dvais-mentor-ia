@@ -29,6 +29,7 @@ export type SpeechRecognitionCallbacks = {
 export type SpeechRecognitionOptions = {
   silenceTimeoutMs?: number
   continuous?: boolean
+  mobile?: boolean
 }
 
 let recognitionInstance: SpeechRecognition | null = null
@@ -108,6 +109,8 @@ export async function startSpeechRecognition(
   recognition.interimResults = true
 
   let finalTranscript = ''
+  let latestTranscript = ''
+  let latestConfidence = 0.5
   let silenceTimeoutId: ReturnType<typeof setTimeout> | null = null
   let endReason: 'ended' | 'manual_stop' = 'ended'
   const silenceTimeoutMs = options?.silenceTimeoutMs ?? 20000
@@ -122,6 +125,20 @@ export async function startSpeechRecognition(
   const resetSilenceTimeout = () => {
     clearSilenceTimeout()
     silenceTimeoutId = setTimeout(() => {
+      const usefulTranscript = latestTranscript.trim()
+      if (options?.mobile && usefulTranscript.length >= 2) {
+        callbacks.onResult?.({
+          text: usefulTranscript,
+          isFinal: true,
+          confidence: latestConfidence,
+        })
+        try {
+          recognition.stop()
+        } catch {
+          // noop
+        }
+        return
+      }
       callbacks.onError?.(
         createError(
           'stt_timeout',
@@ -149,6 +166,7 @@ export async function startSpeechRecognition(
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const transcript = event.results[i][0].transcript
       const confidence = event.results[i][0].confidence || 0.5
+      latestConfidence = confidence
 
       if (event.results[i].isFinal) {
         finalTranscript += transcript + ' '
@@ -157,6 +175,7 @@ export async function startSpeechRecognition(
       }
 
       const fullText = (finalTranscript + interimTranscript).trim()
+      latestTranscript = fullText
       callbacks.onResult?.({
         text: fullText,
         isFinal: interimTranscript === '',

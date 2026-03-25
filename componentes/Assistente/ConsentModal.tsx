@@ -15,36 +15,27 @@ export function ConsentModal({
 }: ConsentModalProps) {
   return (
     <div className="m-3 rounded-2xl border border-white/10 bg-slate-950/95 p-4 text-sm text-white shadow-2xl">
-      <p className="text-sm font-semibold">Escolha o modo do assistente</p>
+      <p className="text-sm font-semibold">Ligar o Davi</p>
       <p className="mt-1 text-xs text-slate-300">
-        No celular, o modo recomendado é texto + toque. A voz continua disponível apenas quando o navegador suportar bem a captura.
+        O Davi tenta iniciar uma sessão por voz na própria página. Se o navegador limitar a captura
+        ou o áudio, o chat entra em modo texto automaticamente.
       </p>
 
       <div className="mt-4 grid gap-3">
         <button
           className="rounded-xl border border-cyan-300/20 bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-3 text-left text-sm font-semibold text-white shadow-lg shadow-cyan-900/30 hover:from-cyan-400 hover:to-blue-500 transition-colors"
-          onClick={() => onActivate(false)}
+          onClick={() => onActivate(true, !isCoarsePointer)}
+          disabled={!speechAvailable}
         >
-          Texto + toque
+          Ligar Davi por voz
         </button>
 
         <button
           className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm font-medium text-white transition-colors hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={() => onActivate(true, false)}
-          disabled={!speechAvailable}
+          onClick={() => onActivate(false)}
         >
-          Voz manual (push-to-talk)
+          Continuar em texto
         </button>
-
-        {!isCoarsePointer && (
-          <button
-            className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm font-medium text-white transition-colors hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => onActivate(true, true)}
-            disabled={!speechAvailable}
-          >
-            Conversa contínua
-          </button>
-        )}
       </div>
 
       {!speechAvailable && (

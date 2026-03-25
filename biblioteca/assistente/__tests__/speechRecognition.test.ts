@@ -117,6 +117,47 @@ describe('speechRecognition (mock)', () => {
     )
   })
 
+  test('no mobile promove o último transcript útil antes de degradar por timeout', async () => {
+    vi.useFakeTimers()
+    mockWindow()
+    mockNavigator(() =>
+      Promise.resolve({ getTracks: () => [{ stop: vi.fn() }] })
+    )
+
+    const onError = vi.fn()
+    const onResult = vi.fn()
+
+    await startSpeechRecognition(
+      { onError, onResult },
+      { silenceTimeoutMs: 50, mobile: true }
+    )
+
+    const instance = FakeRecognition.lastInstance
+    expect(instance).not.toBeNull()
+
+    instance?.onresult?.({
+      resultIndex: 0,
+      results: [
+        {
+          0: { transcript: 'como funciona o cadastro', confidence: 0.62 },
+          isFinal: false,
+        },
+      ],
+    })
+
+    await vi.advanceTimersByTimeAsync(60)
+
+    expect(onResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'como funciona o cadastro',
+        isFinal: true,
+      })
+    )
+    expect(onError).not.toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'stt_timeout' })
+    )
+  })
+
   test('sinaliza manual_stop quando a limpeza encerra a captura', async () => {
     mockWindow()
     mockNavigator(() =>

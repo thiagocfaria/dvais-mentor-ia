@@ -227,7 +227,7 @@ export function useAssistantAPI(args: {
 
       if (clickedContext && shouldClearClickedContext(q)) {
         const clearMessage =
-          'Perfeito. Se quiser, posso explicar outra parte. Use "Selecionar item" para apontar um novo assunto.'
+          'Perfeito. Se quiser, posso explicar outra parte da plataforma ou continuar esta conversa.'
         setClickedContext(null)
         setHintMessage(clearMessage)
         setQaAnswer(clearMessage)
